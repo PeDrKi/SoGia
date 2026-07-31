@@ -150,6 +150,7 @@ let session = null;
 let locked = false;
 let authError = '';
 let authBusy = false;
+let authMode = 'login'; // 'login' | 'forgot' | 'forgotSent' | 'reset'
 
 let activeTab = 'gia'; // 'gia' | 'shop'
 let products = [];
@@ -275,6 +276,9 @@ function escapeHtml(s){
 function switchTab(t){ activeTab = t; render(); }
 
 function renderLock(){
+  if(authMode === 'forgot'){ renderForgotForm(); return; }
+  if(authMode === 'forgotSent'){ renderForgotSent(); return; }
+  if(authMode === 'reset'){ renderResetPassword(); return; }
   const app = document.getElementById('app');
   app.innerHTML =
     '<div style="max-width:320px;margin:70px auto 0;text-align:center;">' +
@@ -285,9 +289,89 @@ function renderLock(){
     '<input type="password" id="loginPassword" placeholder="Mật khẩu" autocomplete="current-password" required style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:10px;box-sizing:border-box;">' +
     (authError ? '<div style="color:var(--brick);font-size:12.5px;margin-bottom:10px;">'+escapeHtml(authError)+'</div>' : '') +
     '<button type="submit" class="btn-add" style="width:100%;" '+(authBusy?'disabled':'')+'>'+(authBusy?'Đang đăng nhập...':'Đăng nhập')+'</button>' +
-    '</form></div>';
+    '</form>' +
+    '<button type="button" onclick="showForgotForm()" style="background:none;border:none;color:var(--ink-soft);font-size:12.5px;text-decoration:underline;cursor:pointer;margin-top:14px;font-family:Inter,sans-serif;">Quên mật khẩu?</button>' +
+    '</div>';
   const input = document.getElementById('loginEmail');
   if(input) input.focus();
+}
+function showForgotForm(){ authMode='forgot'; authError=''; render(); }
+function backToLogin(){ authMode='login'; authError=''; render(); }
+function renderForgotForm(){
+  const app = document.getElementById('app');
+  app.innerHTML =
+    '<div style="max-width:320px;margin:70px auto 0;text-align:center;">' +
+    '<h1 style="font-family:\'Fraunces\',serif;font-size:22px;margin-bottom:4px;">Quên mật khẩu</h1>' +
+    '<p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">Nhập email để nhận link đặt lại mật khẩu</p>' +
+    '<form onsubmit="sendResetEmail(event)">' +
+    '<input type="email" id="forgotEmail" placeholder="Email" required style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:10px;box-sizing:border-box;">' +
+    (authError ? '<div style="color:var(--brick);font-size:12.5px;margin-bottom:10px;">'+escapeHtml(authError)+'</div>' : '') +
+    '<button type="submit" class="btn-add" style="width:100%;" '+(authBusy?'disabled':'')+'>'+(authBusy?'Đang gửi...':'Gửi email')+'</button>' +
+    '</form>' +
+    '<button type="button" onclick="backToLogin()" style="background:none;border:none;color:var(--ink-soft);font-size:12.5px;text-decoration:underline;cursor:pointer;margin-top:14px;font-family:Inter,sans-serif;">Quay lại đăng nhập</button>' +
+    '</div>';
+  const input = document.getElementById('forgotEmail');
+  if(input) input.focus();
+}
+async function sendResetEmail(e){
+  e.preventDefault();
+  const email = document.getElementById('forgotEmail').value.trim();
+  authBusy = true; authError = ''; render();
+  try{
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
+    if(error) throw error;
+    authMode = 'forgotSent';
+  }catch(err){
+    authError = 'Không gửi được email, kiểm tra lại địa chỉ.';
+  }
+  authBusy = false;
+  render();
+}
+function renderForgotSent(){
+  const app = document.getElementById('app');
+  app.innerHTML =
+    '<div style="max-width:320px;margin:70px auto 0;text-align:center;">' +
+    '<h1 style="font-family:\'Fraunces\',serif;font-size:22px;margin-bottom:4px;">📧 Đã gửi email</h1>' +
+    '<p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">Kiểm tra hộp thư và bấm vào link để đặt mật khẩu mới. Nhớ kiểm tra cả mục Spam.</p>' +
+    '<button type="button" onclick="backToLogin()" class="btn-add" style="width:100%;">Quay lại đăng nhập</button>' +
+    '</div>';
+}
+function renderResetPassword(){
+  const app = document.getElementById('app');
+  app.innerHTML =
+    '<div style="max-width:320px;margin:70px auto 0;text-align:center;">' +
+    '<h1 style="font-family:\'Fraunces\',serif;font-size:22px;margin-bottom:4px;">Đặt mật khẩu mới</h1>' +
+    '<p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">Nhập mật khẩu mới cho tài khoản của bạn</p>' +
+    '<form onsubmit="submitNewPassword(event)">' +
+    '<input type="password" id="newPass1" placeholder="Mật khẩu mới (ít nhất 6 ký tự)" required style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:8px;box-sizing:border-box;">' +
+    '<input type="password" id="newPass2" placeholder="Nhập lại mật khẩu mới" required style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:10px;box-sizing:border-box;">' +
+    (authError ? '<div style="color:var(--brick);font-size:12.5px;margin-bottom:10px;">'+escapeHtml(authError)+'</div>' : '') +
+    '<button type="submit" class="btn-add" style="width:100%;" '+(authBusy?'disabled':'')+'>'+(authBusy?'Đang lưu...':'Đổi mật khẩu')+'</button>' +
+    '</form></div>';
+  const input = document.getElementById('newPass1');
+  if(input) input.focus();
+}
+async function submitNewPassword(e){
+  e.preventDefault();
+  const p1 = document.getElementById('newPass1').value;
+  const p2 = document.getElementById('newPass2').value;
+  if(p1.length < 6){ authError = 'Mật khẩu cần ít nhất 6 ký tự.'; render(); return; }
+  if(p1 !== p2){ authError = 'Hai mật khẩu không khớp.'; render(); return; }
+  authBusy = true; authError = ''; render();
+  try{
+    const { error } = await sb.auth.updateUser({ password: p1 });
+    if(error) throw error;
+    await sb.auth.signOut();
+    session = null;
+    locked = true;
+    authMode = 'login';
+    authError = '';
+    showToast('Đã đổi mật khẩu, mời đăng nhập lại');
+  }catch(err){
+    authError = 'Không đổi được mật khẩu: ' + (err.message || err);
+  }
+  authBusy = false;
+  render();
 }
 async function tryLogin(e){
   e.preventDefault();
@@ -315,6 +399,47 @@ async function doLogout(){
 }
 
 function openManage(){ showManage = true; render(); }
+
+function exportJSON(){
+  const backup = {
+    exported_at: new Date().toISOString(),
+    products: products,
+    shopping_list: shopping
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'so-gia-backup-' + todayStr() + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+async function importJSONFile(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const ok = confirm('Khôi phục từ file sao lưu này? Dữ liệu trong file sẽ được thêm vào (hoặc ghi đè nếu trùng) dữ liệu hiện tại, không xóa các mục khác.');
+  if(!ok){ input.value = ''; return; }
+  try{
+    const text = await file.text();
+    const backup = JSON.parse(text);
+    if(!backup || !Array.isArray(backup.products)) throw new Error('File sao lưu không đúng định dạng');
+    if(backup.products.length){
+      const { error: e1 } = await sb.from('products').upsert(backup.products);
+      if(e1) throw e1;
+    }
+    if(Array.isArray(backup.shopping_list) && backup.shopping_list.length){
+      const { error: e2 } = await sb.from('shopping_list').upsert(backup.shopping_list);
+      if(e2) throw e2;
+    }
+    showToast('Đã khôi phục dữ liệu từ file sao lưu');
+    await loadData();
+  }catch(e){
+    showToast('Lỗi khôi phục: ' + (e.message || e));
+  }
+  input.value = '';
+}
 function closeManage(){ showManage = false; render(); }
 
 async function renameStore(oldName){
@@ -370,8 +495,17 @@ function renderManageModal(){
   const categories = getCategories();
   let html = '<div class="overlay" onclick="if(event.target===this) closeManage()">';
   html += '<div class="modal wide">';
-  html += '<h2>⚙ Quản lý / đổi tên hàng loạt</h2>';
-  html += '<p style="font-size:12.5px;color:var(--ink-soft);margin:-8px 0 14px;">Đổi tên ở đây sẽ áp dụng cho MỌI lượt ghi giá đang dùng tên cũ — hữu ích khi gõ sai chính tả lúc nhập.</p>';
+  html += '<h2>⚙ Quản lý</h2>';
+
+  html += '<div style="font-weight:600;font-size:13px;margin-bottom:6px;">Sao lưu &amp; khôi phục</div>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;">';
+  html += '<button type="button" class="chip-btn" onclick="exportJSON()">⬇ Tải file sao lưu (JSON)</button>';
+  html += '<label class="chip-btn" style="cursor:pointer;">⬆ Khôi phục từ file...<input type="file" accept="application/json" style="display:none;" onchange="importJSONFile(this)"></label>';
+  html += '</div>';
+  html += '<p style="font-size:12.5px;color:var(--ink-soft);margin:-10px 0 18px;">Nên tải file sao lưu định kỳ để phòng khi lỡ thao tác nhầm hàng loạt.</p>';
+
+  html += '<div style="font-weight:600;font-size:13px;margin-bottom:2px;">Đổi tên hàng loạt</div>';
+  html += '<p style="font-size:12.5px;color:var(--ink-soft);margin:2px 0 14px;">Đổi tên ở đây sẽ áp dụng cho MỌI lượt ghi giá đang dùng tên cũ — hữu ích khi gõ sai chính tả lúc nhập.</p>';
 
   html += '<div style="font-weight:600;font-size:13px;margin-bottom:6px;">Cửa hàng / Hệ thống</div>';
   if(stores.length===0) html += '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;">Chưa có dữ liệu.</div>';
@@ -1231,8 +1365,14 @@ async function initAuth(){
   }else{
     await loadData();
   }
-  sb.auth.onAuthStateChange((_event, newSession)=>{
+  sb.auth.onAuthStateChange((event, newSession)=>{
     session = newSession;
+    if(event === 'PASSWORD_RECOVERY'){
+      authMode = 'reset';
+      locked = true;
+      render();
+      return;
+    }
     if(!newSession){
       locked = true;
       render();
