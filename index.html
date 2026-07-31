@@ -138,7 +138,7 @@ let loadError = null;
 let filterText = '';
 let filterStore = '';
 let filterCategory = '';
-let sortMode = 'name'; // 'name' | 'price' | 'recent'
+let sortMode = 'category'; // 'category' | 'name' | 'price' | 'recent'
 
 let editingId = null;
 let confirmDeleteId = null;
@@ -303,6 +303,16 @@ function groupProducts(){
     });
   }else if(sortMode === 'recent'){
     list.sort((a,b)=> b.lastUpdate.localeCompare(a.lastUpdate));
+  }else if(sortMode === 'category'){
+    list.sort((a,b)=>{
+      const ca = (a.category||'').trim();
+      const cb = (b.category||'').trim();
+      if(!ca && cb) return 1;
+      if(ca && !cb) return -1;
+      const cmp = ca.localeCompare(cb,'vi');
+      if(cmp !== 0) return cmp;
+      return a.name.localeCompare(b.name,'vi');
+    });
   }
   return list;
 }
@@ -503,6 +513,7 @@ function renderGiaTab(){
       html += '</select>';
     }
     html += '<select onchange="sortMode=this.value;render()">';
+    html += '<option value="category"'+(sortMode==='category'?' selected':'')+'>Sắp xếp: Danh mục A-Z</option>';
     html += '<option value="name"'+(sortMode==='name'?' selected':'')+'>Sắp xếp: Tên A-Z</option>';
     html += '<option value="price"'+(sortMode==='price'?' selected':'')+'>Sắp xếp: Giá tốt nhất</option>';
     html += '<option value="recent"'+(sortMode==='recent'?' selected':'')+'>Sắp xếp: Cập nhật gần nhất</option>';
@@ -516,10 +527,18 @@ function renderGiaTab(){
     return html;
   }
 
+  let lastCategory = null;
   groups.forEach(g=>{
+    if(sortMode === 'category'){
+      const cat = (g.category||'').trim() || 'Khác';
+      if(cat !== lastCategory){
+        html += '<div style="font-family:\'Fraunces\',serif;font-weight:600;font-size:14px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.04em;margin:22px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--line-soft);">'+escapeHtml(cat)+'</div>';
+        lastCategory = cat;
+      }
+    }
     html += '<div class="group">';
     html += '<div class="group-head"><div><h2>'+escapeHtml(g.name)+'</h2>';
-    if(g.category) html += '<span class="cat">'+escapeHtml(g.category)+'</span>';
+    if(g.category && sortMode !== 'category') html += '<span class="cat">'+escapeHtml(g.category)+'</span>';
     html += '</div>';
     html += '<div class="group-head-actions">';
     if(g.items.length > 1) html += '<button class="chip-btn" onclick="openHistory(\''+g.key+'\')">📈 Lịch sử</button>';
