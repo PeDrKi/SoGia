@@ -146,8 +146,10 @@ if(!NOT_CONFIGURED){
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
-const APP_LOCK_KEY = 'so_gia_unlocked_v1';
-let locked = !!(typeof APP_PASSWORD !== 'undefined' && APP_PASSWORD && localStorage.getItem(APP_LOCK_KEY) !== '1');
+let session = null;
+let locked = false;
+let authError = '';
+let authBusy = false;
 
 let activeTab = 'gia'; // 'gia' | 'shop'
 let products = [];
@@ -163,10 +165,33 @@ let viewMode = 'product'; // 'product' | 'store' | 'table'
 let tableSortKey = 'name';
 let tableSortDir = 'asc';
 
+(function restoreFilterState(){
+  try{
+    const saved = JSON.parse(localStorage.getItem('so_gia_filters_v1') || 'null');
+    if(saved){
+      filterText = saved.filterText || '';
+      filterStore = saved.filterStore || '';
+      filterCategory = saved.filterCategory || '';
+      sortMode = saved.sortMode || 'category';
+      viewMode = saved.viewMode || 'product';
+    }
+  }catch(e){}
+})();
+function saveFilterState(){
+  try{
+    localStorage.setItem('so_gia_filters_v1', JSON.stringify({filterText, filterStore, filterCategory, sortMode, viewMode}));
+  }catch(e){}
+}
+function setFilterText(v){ filterText = v; saveFilterState(); render(); }
+function setFilterStore(v){ filterStore = v; saveFilterState(); render(); }
+function setFilterCategory(v){ filterCategory = v; saveFilterState(); render(); }
+function setSortMode(v){ sortMode = v; saveFilterState(); render(); }
+
 let editingId = null;
 let confirmDeleteId = null;
 let confirmDeleteShopId = null;
 let showForm = false;
+let showManage = false;
 let saving = false;
 let historyKey = null;
 let historyChart = null;
@@ -198,6 +223,19 @@ function cmpEmptyStr(x,y){
   if(x && !y) return -1;
   return x.localeCompare(y,'vi');
 }
+function matchesSearch(p, q){
+  if(!q) return true;
+  const fields = [
+    p.name, p.store, p.branch, p.unit, p.package_type, p.subcategory, p.subcategory2,
+    ...(p.categories||[])
+  ];
+  return fields.some(v => v && v.toLowerCase().includes(q));
+}
+function matchesSearchGroup(g, q){
+  if(!q) return true;
+  if(g.name.toLowerCase().includes(q)) return true;
+  return g.items.some(p => matchesSearch(p, q));
+}
 function todayStr(){
   return new Date().toISOString().slice(0,10);
 }
@@ -207,6 +245,30 @@ function showToast(msg){
   t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'), 2200);
 }
+let undoTimeoutId = null;
+let pendingUndo = null;
+let pendingCommit = null;
+function showUndoToast(msg, onUndo, onCommit){
+  if(undoTimeoutId){ clearTimeout(undoTimeoutId); if(pendingCommit) pendingCommit(); }
+  const t = document.getElementById('toast');
+  t.innerHTML = escapeHtml(msg) + ' <button onclick="triggerUndo()" style="margin-left:10px;text-decoration:underline;background:none;border:none;color:var(--turmeric);cursor:pointer;font-weight:600;font-size:13px;">Hoàn tác</button>';
+  t.classList.add('show');
+  pendingUndo = onUndo;
+  pendingCommit = onCommit;
+  undoTimeoutId = setTimeout(()=>{
+    t.classList.remove('show');
+    const commit = pendingCommit;
+    pendingUndo = null; pendingCommit = null; undoTimeoutId = null;
+    if(commit) commit();
+  }, 5000);
+}
+function triggerUndo(){
+  if(undoTimeoutId){ clearTimeout(undoTimeoutId); undoTimeoutId = null; }
+  const undo = pendingUndo;
+  pendingUndo = null; pendingCommit = null;
+  document.getElementById('toast').classList.remove('show');
+  if(undo) undo();
+}
 function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -215,32 +277,132 @@ function switchTab(t){ activeTab = t; render(); }
 function renderLock(){
   const app = document.getElementById('app');
   app.innerHTML =
-    '<div style="max-width:320px;margin:80px auto 0;text-align:center;">' +
+    '<div style="max-width:320px;margin:70px auto 0;text-align:center;">' +
     '<h1 style="font-family:\'Fraunces\',serif;font-size:26px;margin-bottom:4px;">🔒 Sổ giá</h1>' +
-    '<p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">Nhập mật khẩu để mở app</p>' +
-    '<form onsubmit="tryUnlock(event)">' +
-    '<input type="password" id="lockInput" placeholder="Mật khẩu" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:10px;box-sizing:border-box;">' +
-    '<div id="lockError" style="color:var(--brick);font-size:12.5px;margin-bottom:10px;display:none;">Sai mật khẩu, thử lại nhé.</div>' +
-    '<button type="submit" class="btn-add" style="width:100%;">Mở khóa</button>' +
+    '<p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">Đăng nhập để mở app</p>' +
+    '<form onsubmit="tryLogin(event)">' +
+    '<input type="email" id="loginEmail" placeholder="Email" autocomplete="username" required style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:8px;box-sizing:border-box;">' +
+    '<input type="password" id="loginPassword" placeholder="Mật khẩu" autocomplete="current-password" required style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:10px;box-sizing:border-box;">' +
+    (authError ? '<div style="color:var(--brick);font-size:12.5px;margin-bottom:10px;">'+escapeHtml(authError)+'</div>' : '') +
+    '<button type="submit" class="btn-add" style="width:100%;" '+(authBusy?'disabled':'')+'>'+(authBusy?'Đang đăng nhập...':'Đăng nhập')+'</button>' +
     '</form></div>';
-  const input = document.getElementById('lockInput');
+  const input = document.getElementById('loginEmail');
   if(input) input.focus();
 }
-function tryUnlock(e){
+async function tryLogin(e){
   e.preventDefault();
-  const val = document.getElementById('lockInput').value;
-  if(val === APP_PASSWORD){
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  authBusy = true; authError = ''; render();
+  try{
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if(error) throw error;
+    session = data.session;
     locked = false;
-    localStorage.setItem(APP_LOCK_KEY, '1');
-    loadData();
-  }else{
-    document.getElementById('lockError').style.display = 'block';
+    authBusy = false;
+    await loadData();
+  }catch(err){
+    authError = 'Sai email hoặc mật khẩu.';
+    authBusy = false;
+    render();
   }
 }
-function lockApp(){
-  localStorage.removeItem(APP_LOCK_KEY);
+async function doLogout(){
+  await sb.auth.signOut();
+  session = null;
   locked = true;
   render();
+}
+
+function openManage(){ showManage = true; render(); }
+function closeManage(){ showManage = false; render(); }
+
+async function renameStore(oldName){
+  const newName = prompt('Đổi tên cửa hàng "'+oldName+'" thành:', oldName);
+  if(newName === null) return;
+  const trimmed = newName.trim();
+  if(!trimmed || trimmed === oldName) return;
+  try{
+    const { error } = await sb.from('products').update({ store: trimmed }).eq('store', oldName);
+    if(error) throw error;
+    showToast('Đã đổi tên cửa hàng');
+    await loadData();
+  }catch(e){
+    showToast('Lỗi: ' + (e.message || e));
+  }
+}
+async function renameProductName(oldName){
+  const newName = prompt('Đổi tên sản phẩm "'+oldName+'" thành:', oldName);
+  if(newName === null) return;
+  const trimmed = newName.trim();
+  if(!trimmed || trimmed === oldName) return;
+  try{
+    const { error } = await sb.from('products').update({ name: trimmed }).eq('name', oldName);
+    if(error) throw error;
+    showToast('Đã đổi tên sản phẩm');
+    await loadData();
+  }catch(e){
+    showToast('Lỗi: ' + (e.message || e));
+  }
+}
+async function renameCategoryTag(oldName){
+  const newName = prompt('Đổi tên danh mục "'+oldName+'" thành:', oldName);
+  if(newName === null) return;
+  const trimmed = newName.trim();
+  if(!trimmed || trimmed === oldName) return;
+  try{
+    const affected = products.filter(p => (p.categories||[]).includes(oldName));
+    for(const p of affected){
+      const newCats = Array.from(new Set(p.categories.map(c => c === oldName ? trimmed : c)));
+      const { error } = await sb.from('products').update({ categories: newCats }).eq('id', p.id);
+      if(error) throw error;
+    }
+    showToast('Đã đổi tên danh mục');
+    await loadData();
+  }catch(e){
+    showToast('Lỗi: ' + (e.message || e));
+  }
+}
+
+function renderManageModal(){
+  const stores = getStores();
+  const names = Array.from(new Set(products.map(p=>p.name))).sort();
+  const categories = getCategories();
+  let html = '<div class="overlay" onclick="if(event.target===this) closeManage()">';
+  html += '<div class="modal wide">';
+  html += '<h2>⚙ Quản lý / đổi tên hàng loạt</h2>';
+  html += '<p style="font-size:12.5px;color:var(--ink-soft);margin:-8px 0 14px;">Đổi tên ở đây sẽ áp dụng cho MỌI lượt ghi giá đang dùng tên cũ — hữu ích khi gõ sai chính tả lúc nhập.</p>';
+
+  html += '<div style="font-weight:600;font-size:13px;margin-bottom:6px;">Cửa hàng / Hệ thống</div>';
+  if(stores.length===0) html += '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;">Chưa có dữ liệu.</div>';
+  stores.forEach(s=>{
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line-soft);">';
+    html += '<span style="font-size:13.5px;">'+escapeHtml(s)+'</span>';
+    html += '<button class="chip-btn" onclick="renameStore(\''+escapeHtml(s).replace(/'/g,"\\'")+'\')">Đổi tên</button>';
+    html += '</div>';
+  });
+
+  html += '<div style="font-weight:600;font-size:13px;margin:16px 0 6px;">Tên sản phẩm</div>';
+  names.forEach(n=>{
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line-soft);">';
+    html += '<span style="font-size:13.5px;">'+escapeHtml(n)+'</span>';
+    html += '<button class="chip-btn" onclick="renameProductName(\''+escapeHtml(n).replace(/'/g,"\\'")+'\')">Đổi tên</button>';
+    html += '</div>';
+  });
+
+  if(categories.length){
+    html += '<div style="font-weight:600;font-size:13px;margin:16px 0 6px;">Danh mục</div>';
+    categories.forEach(c=>{
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line-soft);">';
+      html += '<span style="font-size:13.5px;">'+escapeHtml(c)+'</span>';
+      html += '<button class="chip-btn" onclick="renameCategoryTag(\''+escapeHtml(c).replace(/'/g,"\\'")+'\')">Đổi tên</button>';
+      html += '</div>';
+    });
+  }
+
+  html += '<div class="modal-actions"><button type="button" class="btn-cancel" onclick="closeManage()" style="flex:1;">Đóng</button></div>';
+  html += '</div></div>';
+  return html;
 }
 
 async function loadData(){
@@ -268,6 +430,32 @@ function openEdit(id){ editingId = id; removeImageFlag = false; showForm = true;
 function closeForm(){ showForm = false; editingId = null; removeImageFlag = false; render(); }
 function markRemoveImage(){ removeImageFlag = true; render(); }
 
+function compressImage(file, maxDim, quality){
+  maxDim = maxDim || 1000;
+  quality = quality || 0.75;
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onerror = ()=>reject(new Error('Không đọc được file ảnh'));
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onerror = ()=>reject(new Error('Không đọc được ảnh'));
+      img.onload = ()=>{
+        let width = img.width, height = img.height;
+        if(width > height && width > maxDim){ height = Math.round(height * maxDim / width); width = maxDim; }
+        else if(height >= width && height > maxDim){ width = Math.round(width * maxDim / height); height = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob)=>{
+          if(blob) resolve(blob); else reject(new Error('Không nén được ảnh'));
+        }, 'image/jpeg', quality);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 async function submitForm(e){
   e.preventDefault();
   const f = e.target;
@@ -294,9 +482,9 @@ async function submitForm(e){
     if(removeImageFlag){ image_url = null; }
     const file = f.image && f.image.files && f.image.files[0];
     if(file){
-      const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
-      const filePath = Date.now() + '_' + safeName;
-      const { error: upErr } = await sb.storage.from('product-images').upload(filePath, file, { upsert: true });
+      const compressed = await compressImage(file, 1000, 0.75);
+      const filePath = Date.now() + '_img.jpg';
+      const { error: upErr } = await sb.storage.from('product-images').upload(filePath, compressed, { upsert: true, contentType: 'image/jpeg' });
       if(upErr) throw upErr;
       const { data: urlData } = sb.storage.from('product-images').getPublicUrl(filePath);
       image_url = urlData.publicUrl;
@@ -320,18 +508,26 @@ async function submitForm(e){
 
 function askDelete(id){ confirmDeleteId = id; render(); }
 function cancelDelete(){ confirmDeleteId = null; render(); }
-async function doDelete(){
+function doDelete(){
   const id = confirmDeleteId;
   confirmDeleteId = null;
-  try{
-    const { error } = await sb.from('products').delete().eq('id', id);
-    if(error) throw error;
-    showToast('Đã xóa');
-    await loadData();
-  }catch(e){
-    showToast('Lỗi: ' + (e.message || e));
+  const idx = products.findIndex(p=>p.id===id);
+  if(idx === -1){ render(); return; }
+  const removed = products[idx];
+  products.splice(idx, 1);
+  render();
+  showUndoToast('Đã xóa "'+removed.name+'"', ()=>{
+    products.splice(idx, 0, removed);
     render();
-  }
+  }, async ()=>{
+    try{
+      const { error } = await sb.from('products').delete().eq('id', id);
+      if(error) throw error;
+    }catch(e){
+      showToast('Lỗi khi xóa: ' + (e.message || e));
+      await loadData();
+    }
+  });
 }
 
 /* ---------- Nhóm / lọc / sắp xếp ---------- */
@@ -353,7 +549,7 @@ function groupProducts(){
 
   if(filterText.trim()){
     const q = filterText.trim().toLowerCase();
-    list = list.filter(g=>g.name.toLowerCase().includes(q));
+    list = list.filter(g=>matchesSearchGroup(g, q));
   }
   if(filterCategory){
     list = list.filter(g => g.items.some(p=> (p.categories||[]).includes(filterCategory)));
@@ -409,7 +605,7 @@ function groupProducts(){
 function groupByStore(){
   const combos = {};
   products.forEach(p=>{
-    if(filterText.trim() && !p.name.toLowerCase().includes(filterText.trim().toLowerCase())) return;
+    if(filterText.trim() && !matchesSearch(p, filterText.trim().toLowerCase())) return;
     if(filterCategory && !(p.categories||[]).includes(filterCategory)) return;
     if(filterStore && p.store !== filterStore) return;
     const comboKey = p.store + '‖' + (p.branch||'');
@@ -450,7 +646,7 @@ function getTableRows(){
   let rows = products.slice();
   if(filterText.trim()){
     const q = filterText.trim().toLowerCase();
-    rows = rows.filter(p=>p.name.toLowerCase().includes(q));
+    rows = rows.filter(p=>matchesSearch(p, q));
   }
   if(filterStore) rows = rows.filter(p=>p.store===filterStore);
   if(filterCategory) rows = rows.filter(p=>(p.categories||[]).includes(filterCategory));
@@ -466,7 +662,7 @@ function toggleTableSort(key){
   else { tableSortKey = key; tableSortDir = 'asc'; }
   render();
 }
-function setViewMode(v){ viewMode = v; render(); }
+function setViewMode(v){ viewMode = v; saveFilterState(); render(); }
 
 
 function openHistory(key){
@@ -576,17 +772,26 @@ async function toggleShopDone(id, done){
 }
 function askDeleteShop(id){ confirmDeleteShopId = id; render(); }
 function cancelDeleteShop(){ confirmDeleteShopId = null; render(); }
-async function doDeleteShop(){
+function doDeleteShop(){
   const id = confirmDeleteShopId;
   confirmDeleteShopId = null;
-  try{
-    const { error } = await sb.from('shopping_list').delete().eq('id', id);
-    if(error) throw error;
-    await loadData();
-  }catch(e){
-    showToast('Lỗi: ' + (e.message || e));
+  const idx = shopping.findIndex(s=>s.id===id);
+  if(idx === -1){ render(); return; }
+  const removed = shopping[idx];
+  shopping.splice(idx, 1);
+  render();
+  showUndoToast('Đã xóa "'+removed.name+'"', ()=>{
+    shopping.splice(idx, 0, removed);
     render();
-  }
+  }, async ()=>{
+    try{
+      const { error } = await sb.from('shopping_list').delete().eq('id', id);
+      if(error) throw error;
+    }catch(e){
+      showToast('Lỗi khi xóa: ' + (e.message || e));
+      await loadData();
+    }
+  });
 }
 async function clearDoneShop(){
   const doneIds = shopping.filter(s=>s.done).map(s=>s.id);
@@ -611,7 +816,8 @@ function render(){
   html += '<div><h1>Sổ giá</h1><div class="tag">Theo dõi &amp; so sánh giá giữa các cửa hàng</div></div>';
   html += '<div style="display:flex;gap:8px;">';
   if(!NOT_CONFIGURED && activeTab==='gia') html += '<button class="btn-add" onclick="openAdd()">+ Thêm giá</button>';
-  if(typeof APP_PASSWORD !== 'undefined' && APP_PASSWORD) html += '<button class="icon-btn" onclick="lockApp()" aria-label="Khóa app" title="Khóa app" style="font-size:19px;">🔒</button>';
+  if(typeof SUPABASE_URL !== 'undefined' && !NOT_CONFIGURED) html += '<button class="icon-btn" onclick="openManage()" aria-label="Quản lý" title="Đổi tên hàng loạt" style="font-size:19px;">⚙</button>';
+  if(typeof SUPABASE_URL !== 'undefined' && !NOT_CONFIGURED) html += '<button class="icon-btn" onclick="doLogout()" aria-label="Đăng xuất" title="Đăng xuất" style="font-size:19px;">🔒</button>';
   html += '</div>';
   html += '</div>';
 
@@ -638,6 +844,7 @@ function render(){
   if(confirmDeleteId) html += renderConfirmDeleteGia();
   if(confirmDeleteShopId) html += renderConfirmDeleteShop();
   if(historyKey) html += renderHistoryModal();
+  if(showManage) html += renderManageModal();
 
   app.innerHTML = html;
 }
@@ -667,19 +874,19 @@ function renderGiaTab(){
   html += '</div>';
 
   html += '<div class="toolbar">';
-  html += '<input type="text" placeholder="Tìm sản phẩm..." value="'+escapeHtml(filterText)+'" oninput="filterText=this.value;render()">';
-  html += '<select onchange="filterStore=this.value;render()">';
+  html += '<input type="text" placeholder="Tìm sản phẩm, cửa hàng, danh mục..." value="'+escapeHtml(filterText)+'" oninput="setFilterText(this.value)">';
+  html += '<select onchange="setFilterStore(this.value)">';
   html += '<option value="">Tất cả cửa hàng</option>';
   stores.forEach(s=>{ html += '<option value="'+escapeHtml(s)+'"'+(filterStore===s?' selected':'')+'>'+escapeHtml(s)+'</option>'; });
   html += '</select>';
   if(categories.length){
-    html += '<select onchange="filterCategory=this.value;render()">';
+    html += '<select onchange="setFilterCategory(this.value)">';
     html += '<option value="">Tất cả danh mục</option>';
     categories.forEach(c=>{ html += '<option value="'+escapeHtml(c)+'"'+(filterCategory===c?' selected':'')+'>'+escapeHtml(c)+'</option>'; });
     html += '</select>';
   }
   if(viewMode === 'product'){
-    html += '<select onchange="sortMode=this.value;render()">';
+    html += '<select onchange="setSortMode(this.value)">';
     html += '<option value="category"'+(sortMode==='category'?' selected':'')+'>Sắp xếp: Danh mục A-Z</option>';
     html += '<option value="name"'+(sortMode==='name'?' selected':'')+'>Sắp xếp: Tên A-Z</option>';
     html += '<option value="price"'+(sortMode==='price'?' selected':'')+'>Sắp xếp: Giá tốt nhất</option>';
@@ -1014,11 +1221,25 @@ if('serviceWorker' in navigator){
   });
 }
 
-if(locked){
-  render();
-}else{
-  loadData();
+async function initAuth(){
+  if(NOT_CONFIGURED){ loaded = true; render(); return; }
+  const { data } = await sb.auth.getSession();
+  session = data.session;
+  locked = !session;
+  if(locked){
+    render();
+  }else{
+    await loadData();
+  }
+  sb.auth.onAuthStateChange((_event, newSession)=>{
+    session = newSession;
+    if(!newSession){
+      locked = true;
+      render();
+    }
+  });
 }
+initAuth();
 </script>
 </body>
 </html>
