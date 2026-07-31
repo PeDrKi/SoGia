@@ -136,6 +136,7 @@
 <script src="./config.js"></script>
 <script>
 const NOT_CONFIGURED = !SUPABASE_URL || SUPABASE_URL.indexOf('YOUR_SUPABASE_URL') === 0;
+const COMMON_UNITS = ['kg','g','lít','ml','cái','quả','lon','chai','túi','gói','hộp','thùng','vỉ','bó','cây','ổ','miếng','chục','lọ','bịch','viên'];
 let sb = null;
 if(!NOT_CONFIGURED){
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -826,7 +827,7 @@ function renderForm(){
   const categoriesList = getCategories();
   const subcategoriesList = Array.from(new Set(products.map(p=>p.subcategory).filter(Boolean))).sort();
   const subcategories2List = Array.from(new Set(products.map(p=>p.subcategory2).filter(Boolean))).sort();
-  const unitsList = Array.from(new Set(products.map(p=>p.unit).filter(Boolean))).sort();
+  const unitsList = Array.from(new Set([...COMMON_UNITS, ...products.map(p=>p.unit).filter(Boolean)]));
   let html = '<div class="overlay" onclick="if(event.target===this) closeForm()">';
   html += '<div class="modal">';
   html += '<h2>'+(editing?'Sửa giá':'Thêm giá mới')+'</h2>';
