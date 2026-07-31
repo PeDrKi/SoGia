@@ -29,23 +29,33 @@
   .wrap{max-width:760px;margin:0 auto;padding:28px 20px 80px;}
   .head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px;gap:12px;}
   h1{font-family:'Fraunces',serif;font-weight:600;font-size:30px;margin:0;letter-spacing:-0.01em;}
-  .tag{font-size:13px;color:var(--ink-soft);margin:4px 0 20px;}
+  .tag{font-size:13px;color:var(--ink-soft);margin:4px 0 18px;}
   .btn-add{background:var(--ink);color:var(--paper-2);border:none;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;}
   .btn-add:active{transform:scale(0.98);}
-  .toolbar{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
+  .btn-ghost{background:none;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;}
+  .btn-ghost:hover{background:var(--line-soft);}
+
+  .tabs{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--line-soft);}
+  .tab-btn{background:none;border:none;padding:10px 4px;margin-right:16px;font-size:14px;font-weight:600;color:var(--ink-soft);cursor:pointer;font-family:'Inter',sans-serif;border-bottom:2px solid transparent;}
+  .tab-btn.active{color:var(--ink);border-bottom-color:var(--turmeric-dark);}
+
+  .toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
   .toolbar input, .toolbar select{
     border:1px solid var(--line);background:var(--paper-2);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--ink);font-family:'Inter',sans-serif;
   }
   .toolbar input{flex:1;min-width:140px;}
   .toolbar input:focus, .toolbar select:focus{outline:none;border-color:var(--sage);}
-  .stats{display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap;}
-  .stat{background:var(--paper-2);border:1px solid var(--line-soft);border-radius:10px;padding:10px 14px;flex:1;min-width:110px;}
+  .stats{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+  .stat{background:var(--paper-2);border:1px solid var(--line-soft);border-radius:10px;padding:10px 14px;flex:1;min-width:100px;}
   .stat b{display:block;font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:600;}
   .stat span{font-size:11.5px;color:var(--ink-soft);}
   .group{background:var(--paper-2);border:1px solid var(--line-soft);border-radius:14px;margin-bottom:16px;overflow:hidden;}
-  .group-head{padding:14px 16px 10px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .group-head{padding:14px 16px 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
   .group-head h2{font-family:'Fraunces',serif;font-size:18px;font-weight:600;margin:0;}
-  .group-head .cat{font-size:12px;color:var(--ink-soft);}
+  .group-head .cat{font-size:12px;color:var(--ink-soft);display:block;margin-top:1px;}
+  .group-head-actions{display:flex;gap:6px;flex-shrink:0;}
+  .chip-btn{background:none;border:1px solid var(--line);border-radius:20px;padding:5px 10px;font-size:11.5px;color:var(--ink-soft);cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;}
+  .chip-btn:hover{background:var(--line-soft);color:var(--ink);}
   .rows{border-top:1px solid var(--line-soft);}
   .row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line-soft);position:relative;}
   .row:last-child{border-bottom:none;}
@@ -66,13 +76,14 @@
     transform:rotate(-14deg);pointer-events:none;
   }
   .row.best{padding-left:70px;}
-  .row-actions{display:flex;gap:4px;flex-shrink:0;}
-  .icon-btn{background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:16px;padding:4px;border-radius:6px;}
+  .row-actions{display:flex;gap:2px;flex-shrink:0;}
+  .icon-btn{background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:15px;padding:4px;border-radius:6px;}
   .icon-btn:hover{background:var(--line-soft);color:var(--ink);}
   .empty{text-align:center;padding:60px 20px;color:var(--ink-soft);}
   .empty h3{font-family:'Fraunces',serif;color:var(--ink);font-size:20px;margin-bottom:6px;}
   .overlay{position:fixed;inset:0;background:rgba(22,51,44,0.35);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;}
   .modal{background:var(--paper-2);border-radius:16px;padding:22px;width:100%;max-width:420px;max-height:88vh;overflow-y:auto;}
+  .modal.wide{max-width:560px;}
   .modal h2{font-family:'Fraunces',serif;font-size:20px;margin:0 0 16px;}
   .field{margin-bottom:13px;}
   .field label{display:block;font-size:12.5px;color:var(--ink-soft);margin-bottom:5px;font-weight:600;}
@@ -91,6 +102,15 @@
   .banner code{background:rgba(0,0,0,0.06);padding:1px 5px;border-radius:4px;}
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper-2);padding:10px 18px;border-radius:20px;font-size:13px;z-index:60;opacity:0;transition:opacity .25s;pointer-events:none;}
   .toast.show{opacity:1;}
+  .chart-wrap{background:#fff;border:1px solid var(--line-soft);border-radius:10px;padding:12px;margin-bottom:6px;}
+
+  .shop-item{display:flex;align-items:center;gap:10px;background:var(--paper-2);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
+  .shop-item.done{opacity:0.5;}
+  .shop-item.done .shop-name{text-decoration:line-through;}
+  .shop-check{width:20px;height:20px;flex-shrink:0;accent-color:var(--turmeric-dark);cursor:pointer;}
+  .shop-main{flex:1;min-width:0;}
+  .shop-name{font-weight:600;font-size:14.5px;}
+  .shop-note{font-size:12.5px;color:var(--ink-soft);margin-top:1px;}
 </style>
 </head>
 <body>
@@ -100,6 +120,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="./config.js"></script>
 <script>
 const NOT_CONFIGURED = !SUPABASE_URL || SUPABASE_URL.indexOf('YOUR_SUPABASE_URL') === 0;
@@ -108,15 +129,24 @@ if(!NOT_CONFIGURED){
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
+let activeTab = 'gia'; // 'gia' | 'shop'
 let products = [];
+let shopping = [];
 let loaded = false;
 let loadError = null;
+
 let filterText = '';
 let filterStore = '';
+let filterCategory = '';
+let sortMode = 'name'; // 'name' | 'price' | 'recent'
+
 let editingId = null;
 let confirmDeleteId = null;
+let confirmDeleteShopId = null;
 let showForm = false;
 let saving = false;
+let historyKey = null;
+let historyChart = null;
 
 function fmtVND(n){
   if(n===null||n===undefined||isNaN(n)) return '—';
@@ -144,13 +174,22 @@ function showToast(msg){
   t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'), 2200);
 }
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function switchTab(t){ activeTab = t; render(); }
 
 async function loadData(){
   if(NOT_CONFIGURED){ loaded = true; render(); return; }
   try{
-    const { data, error } = await sb.from('products').select('*').order('name', { ascending: true });
-    if(error) throw error;
-    products = data || [];
+    const [pRes, sRes] = await Promise.all([
+      sb.from('products').select('*').order('name', { ascending: true }),
+      sb.from('shopping_list').select('*').order('created_at', { ascending: true })
+    ]);
+    if(pRes.error) throw pRes.error;
+    if(sRes.error) throw sRes.error;
+    products = pRes.data || [];
+    shopping = sRes.data || [];
     loadError = null;
   }catch(e){
     loadError = e.message || String(e);
@@ -159,6 +198,7 @@ async function loadData(){
   render();
 }
 
+/* ---------- Sổ giá: form thêm/sửa ---------- */
 function openAdd(){ editingId = null; showForm = true; render(); }
 function openEdit(id){ editingId = id; showForm = true; render(); }
 function closeForm(){ showForm = false; editingId = null; render(); }
@@ -212,41 +252,192 @@ async function doDelete(){
   }
 }
 
-function getStores(){
-  return Array.from(new Set(products.map(p=>p.store))).sort();
-}
+/* ---------- Nhóm / lọc / sắp xếp ---------- */
+function getStores(){ return Array.from(new Set(products.map(p=>p.store))).sort(); }
+function getCategories(){ return Array.from(new Set(products.map(p=>p.category).filter(Boolean))).sort(); }
 
 function groupProducts(){
   const groups = {};
   products.forEach(p=>{
     const key = p.name.trim().toLowerCase();
-    if(!groups[key]) groups[key] = {name: p.name, category: p.category, items: []};
+    if(!groups[key]) groups[key] = {key, name: p.name, category: p.category, items: []};
     groups[key].items.push(p);
   });
   let list = Object.values(groups);
+
   if(filterText.trim()){
     const q = filterText.trim().toLowerCase();
     list = list.filter(g=>g.name.toLowerCase().includes(q));
   }
-  if(filterStore){
-    list = list.map(g=>({...g, items: g.items.filter(p=>p.store===filterStore)})).filter(g=>g.items.length>0);
+  if(filterCategory){
+    list = list.filter(g => g.items.some(p=>p.category===filterCategory));
   }
+
   list.forEach(g=>{
-    g.items.sort((a,b)=>{
+    const latestByStore = {};
+    g.items.forEach(p=>{
+      const cur = latestByStore[p.store];
+      if(!cur || p.date > cur.date) latestByStore[p.store] = p;
+    });
+    g.display = Object.values(latestByStore);
+    if(filterStore) g.display = g.display.filter(p=>p.store===filterStore);
+    g.display.sort((a,b)=>{
       const ua = unitPrice(a), ub = unitPrice(b);
       if(isNaN(ua)) return 1;
       if(isNaN(ub)) return -1;
       return ua - ub;
     });
+    g.bestUnit = g.display.length ? unitPrice(g.display[0]) : NaN;
+    g.lastUpdate = g.items.reduce((max,p)=> p.date > max ? p.date : max, '0000-00-00');
   });
-  list.sort((a,b)=>a.name.localeCompare(b.name,'vi'));
+
+  if(filterStore) list = list.filter(g=>g.display.length>0);
+
+  if(sortMode === 'name'){
+    list.sort((a,b)=>a.name.localeCompare(b.name,'vi'));
+  }else if(sortMode === 'price'){
+    list.sort((a,b)=>{
+      if(isNaN(a.bestUnit)) return 1;
+      if(isNaN(b.bestUnit)) return -1;
+      return a.bestUnit - b.bestUnit;
+    });
+  }else if(sortMode === 'recent'){
+    list.sort((a,b)=> b.lastUpdate.localeCompare(a.lastUpdate));
+  }
   return list;
 }
 
-function escapeHtml(s){
-  return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* ---------- Lịch sử giá (biểu đồ) ---------- */
+function openHistory(key){
+  historyKey = key;
+  render();
+  setTimeout(()=>{
+    const canvas = document.getElementById('historyCanvas');
+    if(!canvas) return;
+    const entries = products.filter(p=>p.name.trim().toLowerCase()===key);
+    const stores = Array.from(new Set(entries.map(e=>e.store)));
+    const dates = Array.from(new Set(entries.map(e=>e.date))).sort();
+    const colors = ['#16332C','#B5453A','#D9A441','#6E8B7C','#4C6359','#2E5B4E'];
+    const datasets = stores.map((s,i)=>{
+      const byDate = {};
+      entries.filter(e=>e.store===s).forEach(e=>{ byDate[e.date] = unitPrice(e); });
+      return {
+        label: s,
+        data: dates.map(d => byDate[d] !== undefined ? byDate[d] : null),
+        borderColor: colors[i % colors.length],
+        backgroundColor: colors[i % colors.length],
+        spanGaps: true,
+        tension: 0.25,
+        pointRadius: 3
+      };
+    });
+    if(historyChart) historyChart.destroy();
+    historyChart = new Chart(canvas, {
+      type: 'line',
+      data: { labels: dates, datasets },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Inter' } } } },
+        scales: { y: { ticks: { callback: v => Math.round(v).toLocaleString('vi-VN') + '₫' } } }
+      }
+    });
+  }, 30);
+}
+function closeHistory(){
+  historyKey = null;
+  if(historyChart){ historyChart.destroy(); historyChart = null; }
+  render();
 }
 
+/* ---------- Xuất CSV ---------- */
+function exportCSV(){
+  const headers = ['Tên sản phẩm','Cửa hàng','Danh mục','Đơn vị tính','Định lượng','Giá tiền','Giá sau khuyến mãi','Ngày cập nhật','Đơn giá quy đổi'];
+  const rows = products.map(p => [
+    p.name, p.store, p.category||'', p.unit, p.qty, p.price, p.sale_price ?? '', p.date,
+    isNaN(unitPrice(p)) ? '' : Math.round(unitPrice(p))
+  ]);
+  const csvLines = [headers, ...rows].map(r =>
+    r.map(v => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+    }).join(',')
+  );
+  const csv = '\uFEFF' + csvLines.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'so-gia-' + todayStr() + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ---------- Danh sách mua sắm ---------- */
+async function addShopItem(name, note){
+  name = (name||'').trim();
+  if(!name) return;
+  try{
+    const { error } = await sb.from('shopping_list').insert([{ name, note: note || null, done: false }]);
+    if(error) throw error;
+    showToast('Đã thêm vào danh sách mua');
+    await loadData();
+  }catch(e){
+    showToast('Lỗi: ' + (e.message || e));
+  }
+}
+function quickAddToShop(groupKey){
+  const g = groupProducts().find(x=>x.key===groupKey);
+  if(!g || !g.display.length) return;
+  const best = g.display[0];
+  const note = best.store + ' · ' + fmtUnit(unitPrice(best), best.unit);
+  addShopItem(g.name, note);
+}
+async function submitShopForm(e){
+  e.preventDefault();
+  const f = e.target;
+  await addShopItem(f.name.value, f.note.value.trim());
+  f.reset();
+}
+async function toggleShopDone(id, done){
+  try{
+    const { error } = await sb.from('shopping_list').update({ done }).eq('id', id);
+    if(error) throw error;
+    const item = shopping.find(s=>s.id===id);
+    if(item) item.done = done;
+    render();
+  }catch(e){
+    showToast('Lỗi: ' + (e.message || e));
+  }
+}
+function askDeleteShop(id){ confirmDeleteShopId = id; render(); }
+function cancelDeleteShop(){ confirmDeleteShopId = null; render(); }
+async function doDeleteShop(){
+  const id = confirmDeleteShopId;
+  confirmDeleteShopId = null;
+  try{
+    const { error } = await sb.from('shopping_list').delete().eq('id', id);
+    if(error) throw error;
+    await loadData();
+  }catch(e){
+    showToast('Lỗi: ' + (e.message || e));
+    render();
+  }
+}
+async function clearDoneShop(){
+  const doneIds = shopping.filter(s=>s.done).map(s=>s.id);
+  if(doneIds.length===0) return;
+  try{
+    const { error } = await sb.from('shopping_list').delete().in('id', doneIds);
+    if(error) throw error;
+    await loadData();
+  }catch(e){
+    showToast('Lỗi: ' + (e.message || e));
+  }
+}
+
+/* ---------- Render ---------- */
 function render(){
   const app = document.getElementById('app');
   if(!loaded){ app.innerHTML = '<div class="loading">Đang tải sổ giá...</div>'; return; }
@@ -254,25 +445,44 @@ function render(){
   let html = '';
   html += '<div class="head">';
   html += '<div><h1>Sổ giá</h1><div class="tag">Theo dõi &amp; so sánh giá giữa các cửa hàng</div></div>';
-  if(!NOT_CONFIGURED) html += '<button class="btn-add" onclick="openAdd()">+ Thêm giá</button>';
+  if(!NOT_CONFIGURED && activeTab==='gia') html += '<button class="btn-add" onclick="openAdd()">+ Thêm giá</button>';
   html += '</div>';
 
   if(NOT_CONFIGURED){
-    html += '<div class="banner">Chưa kết nối Supabase. Mở file <code>config.js</code>, dán <code>SUPABASE_URL</code> và <code>SUPABASE_ANON_KEY</code> từ project Supabase của bạn vào, rồi deploy lại lên Vercel.</div>';
+    html += '<div class="banner">Chưa kết nối Supabase. Mở file <code>config.js</code>, dán <code>SUPABASE_URL</code> và <code>SUPABASE_ANON_KEY</code> vào, rồi deploy lại.</div>';
     app.innerHTML = html;
     return;
   }
   if(loadError){
-    html += '<div class="banner">Không tải được dữ liệu: '+escapeHtml(loadError)+'. Kiểm tra lại URL/key trong <code>config.js</code> và bảng <code>products</code> trên Supabase.</div>';
+    html += '<div class="banner">Không tải được dữ liệu: '+escapeHtml(loadError)+'. Kiểm tra lại config.js và các bảng trên Supabase (products, shopping_list).</div>';
     app.innerHTML = html;
     return;
   }
 
+  html += '<div class="tabs">';
+  html += '<button class="tab-btn'+(activeTab==='gia'?' active':'')+'" onclick="switchTab(\'gia\')">Sổ giá</button>';
+  html += '<button class="tab-btn'+(activeTab==='shop'?' active':'')+'" onclick="switchTab(\'shop\')">Danh sách mua'+(shopping.filter(s=>!s.done).length ? ' ('+shopping.filter(s=>!s.done).length+')' : '')+'</button>';
+  html += '</div>';
+
+  if(activeTab === 'gia') html += renderGiaTab();
+  else html += renderShopTab();
+
+  if(showForm) html += renderForm();
+  if(confirmDeleteId) html += renderConfirmDeleteGia();
+  if(confirmDeleteShopId) html += renderConfirmDeleteShop();
+  if(historyKey) html += renderHistoryModal();
+
+  app.innerHTML = html;
+}
+
+function renderGiaTab(){
   const groups = groupProducts();
   const stores = getStores();
+  const categories = getCategories();
   const totalItems = products.length;
   const totalProducts = new Set(products.map(p=>p.name.trim().toLowerCase())).size;
 
+  let html = '';
   html += '<div class="stats">';
   html += '<div class="stat"><b>'+totalProducts+'</b><span>sản phẩm</span></div>';
   html += '<div class="stat"><b>'+totalItems+'</b><span>lượt ghi giá</span></div>';
@@ -286,83 +496,147 @@ function render(){
     html += '<option value="">Tất cả cửa hàng</option>';
     stores.forEach(s=>{ html += '<option value="'+escapeHtml(s)+'"'+(filterStore===s?' selected':'')+'>'+escapeHtml(s)+'</option>'; });
     html += '</select>';
+    if(categories.length){
+      html += '<select onchange="filterCategory=this.value;render()">';
+      html += '<option value="">Tất cả danh mục</option>';
+      categories.forEach(c=>{ html += '<option value="'+escapeHtml(c)+'"'+(filterCategory===c?' selected':'')+'>'+escapeHtml(c)+'</option>'; });
+      html += '</select>';
+    }
+    html += '<select onchange="sortMode=this.value;render()">';
+    html += '<option value="name"'+(sortMode==='name'?' selected':'')+'>Sắp xếp: Tên A-Z</option>';
+    html += '<option value="price"'+(sortMode==='price'?' selected':'')+'>Sắp xếp: Giá tốt nhất</option>';
+    html += '<option value="recent"'+(sortMode==='recent'?' selected':'')+'>Sắp xếp: Cập nhật gần nhất</option>';
+    html += '</select>';
+    html += '<button class="btn-ghost" onclick="exportCSV()">⬇ Xuất CSV</button>';
     html += '</div>';
   }
 
   if(groups.length===0){
     html += '<div class="empty"><h3>Chưa có giá nào</h3><p>Bắt đầu ghi lại giá sản phẩm để so sánh giữa các cửa hàng.</p></div>';
-  }else{
-    groups.forEach(g=>{
-      html += '<div class="group">';
-      html += '<div class="group-head"><h2>'+escapeHtml(g.name)+'</h2>';
-      if(g.category) html += '<span class="cat">'+escapeHtml(g.category)+'</span>';
-      html += '</div>';
-      html += '<div class="rows">';
-      g.items.forEach((p, idx)=>{
-        const up = unitPrice(p);
-        const isBest = idx===0 && g.items.length>1 && !isNaN(up);
-        const eff = effectivePrice(p);
-        const hasSale = p.sale_price !== null && p.sale_price !== undefined && p.sale_price > 0 && p.sale_price < p.price;
-        html += '<div class="row'+(isBest?' best':'')+'">';
-        if(isBest) html += '<div class="stamp">giá tốt nhất</div>';
-        html += '<div class="row-main">';
-        html += '<div class="row-store">'+escapeHtml(p.store)+'</div>';
-        html += '<div class="row-meta">'+escapeHtml(String(p.qty))+' '+escapeHtml(p.unit)+' · cập nhật '+escapeHtml(p.date)+'</div>';
-        html += '</div>';
-        html += '<div class="row-price">';
-        if(hasSale) html += '<span class="price-old">'+fmtVND(p.price)+'</span>';
-        html += '<span class="price-now">'+fmtVND(eff)+'</span>';
-        html += '<div class="unit-price">'+fmtUnit(up, p.unit)+'</div>';
-        html += '</div>';
-        html += '<div class="row-actions">';
-        html += '<button class="icon-btn" onclick="openEdit(\''+p.id+'\')" aria-label="Sửa">✎</button>';
-        html += '<button class="icon-btn" onclick="askDelete(\''+p.id+'\')" aria-label="Xóa">✕</button>';
-        html += '</div>';
-        html += '</div>';
-      });
-      html += '</div></div>';
-    });
+    return html;
   }
 
-  if(showForm){
-    const editing = editingId ? products.find(p=>p.id===editingId) : null;
-    html += '<div class="overlay" onclick="if(event.target===this) closeForm()">';
-    html += '<div class="modal">';
-    html += '<h2>'+(editing?'Sửa giá':'Thêm giá mới')+'</h2>';
-    html += '<form onsubmit="submitForm(event)">';
-    html += '<div class="field"><label>Tên sản phẩm</label><input name="name" required value="'+escapeHtml(editing?editing.name:'')+'" placeholder="VD: Sữa tươi Vinamilk 1L"></div>';
-    html += '<div class="field-row">';
-    html += '<div class="field"><label>Cửa hàng</label><input name="store" required value="'+escapeHtml(editing?editing.store:'')+'" placeholder="VD: Winmart, Bách Hóa Xanh"></div>';
-    html += '<div class="field"><label>Danh mục</label><input name="category" value="'+escapeHtml(editing?editing.category||'':'')+'" placeholder="Tùy chọn"></div>';
+  groups.forEach(g=>{
+    html += '<div class="group">';
+    html += '<div class="group-head"><div><h2>'+escapeHtml(g.name)+'</h2>';
+    if(g.category) html += '<span class="cat">'+escapeHtml(g.category)+'</span>';
     html += '</div>';
-    html += '<div class="field-row">';
-    html += '<div class="field"><label>Định lượng</label><input name="qty" type="number" step="any" min="0.01" required value="'+(editing?editing.qty:'')+'" placeholder="VD: 1, 500"></div>';
-    html += '<div class="field"><label>Đơn vị tính</label><input name="unit" required value="'+escapeHtml(editing?editing.unit:'')+'" placeholder="lít, kg, g, cái..."></div>';
-    html += '</div>';
-    html += '<div class="field-row">';
-    html += '<div class="field"><label>Giá gốc</label><input name="price" type="number" step="any" min="0" required value="'+(editing?editing.price:'')+'" placeholder="VNĐ"></div>';
-    html += '<div class="field"><label>Giá sau KM</label><input name="salePrice" type="number" step="any" min="0" value="'+(editing&&editing.sale_price!=null?editing.sale_price:'')+'" placeholder="Nếu có"></div>';
-    html += '</div>';
-    html += '<div class="field"><label>Ngày cập nhật</label><input name="date" type="date" value="'+(editing?editing.date:todayStr())+'"></div>';
-    html += '<div class="modal-actions">';
-    html += '<button type="button" class="btn-cancel" onclick="closeForm()">Hủy</button>';
-    html += '<button type="submit" class="btn-save" '+(saving?'disabled':'')+'>'+(saving?'Đang lưu...':'Lưu')+'</button>';
-    html += '</div>';
-    html += '</form>';
+    html += '<div class="group-head-actions">';
+    if(g.items.length > 1) html += '<button class="chip-btn" onclick="openHistory(\''+g.key+'\')">📈 Lịch sử</button>';
+    html += '<button class="chip-btn" onclick="quickAddToShop(\''+g.key+'\')">🛒 Thêm vào ds mua</button>';
     html += '</div></div>';
+    html += '<div class="rows">';
+    g.display.forEach((p, idx)=>{
+      const up = unitPrice(p);
+      const isBest = idx===0 && g.display.length>1 && !isNaN(up);
+      const eff = effectivePrice(p);
+      const hasSale = p.sale_price !== null && p.sale_price !== undefined && p.sale_price > 0 && p.sale_price < p.price;
+      html += '<div class="row'+(isBest?' best':'')+'">';
+      if(isBest) html += '<div class="stamp">giá tốt nhất</div>';
+      html += '<div class="row-main">';
+      html += '<div class="row-store">'+escapeHtml(p.store)+'</div>';
+      html += '<div class="row-meta">'+escapeHtml(String(p.qty))+' '+escapeHtml(p.unit)+' · cập nhật '+escapeHtml(p.date)+'</div>';
+      html += '</div>';
+      html += '<div class="row-price">';
+      if(hasSale) html += '<span class="price-old">'+fmtVND(p.price)+'</span>';
+      html += '<span class="price-now">'+fmtVND(eff)+'</span>';
+      html += '<div class="unit-price">'+fmtUnit(up, p.unit)+'</div>';
+      html += '</div>';
+      html += '<div class="row-actions">';
+      html += '<button class="icon-btn" onclick="openEdit(\''+p.id+'\')" aria-label="Sửa">✎</button>';
+      html += '<button class="icon-btn" onclick="askDelete(\''+p.id+'\')" aria-label="Xóa">✕</button>';
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+  });
+  return html;
+}
+
+function renderShopTab(){
+  let html = '';
+  html += '<form onsubmit="submitShopForm(event)" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">';
+  html += '<input name="name" placeholder="Tên sản phẩm cần mua..." required style="flex:2;min-width:140px;border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:14px;font-family:Inter,sans-serif;background:var(--paper-2);color:var(--ink);">';
+  html += '<input name="note" placeholder="Ghi chú (tùy chọn)" style="flex:1;min-width:120px;border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:14px;font-family:Inter,sans-serif;background:var(--paper-2);color:var(--ink);">';
+  html += '<button type="submit" class="btn-add">+ Thêm</button>';
+  html += '</form>';
+
+  if(shopping.length===0){
+    html += '<div class="empty"><h3>Danh sách trống</h3><p>Thêm sản phẩm cần mua, hoặc bấm "🛒 Thêm vào ds mua" ở tab Sổ giá.</p></div>';
+    return html;
   }
 
-  if(confirmDeleteId){
-    html += '<div class="overlay" onclick="if(event.target===this) cancelDelete()">';
-    html += '<div class="confirm-box">';
-    html += '<p>Xóa mục giá này? Không thể hoàn tác.</p>';
-    html += '<div class="modal-actions">';
-    html += '<button class="btn-cancel" onclick="cancelDelete()">Hủy</button>';
-    html += '<button class="btn-save" style="background:var(--brick)" onclick="doDelete()">Xóa</button>';
-    html += '</div></div></div>';
-  }
+  const pending = shopping.filter(s=>!s.done);
+  const done = shopping.filter(s=>s.done);
 
-  app.innerHTML = html;
+  [...pending, ...done].forEach(item=>{
+    html += '<div class="shop-item'+(item.done?' done':'')+'">';
+    html += '<input type="checkbox" class="shop-check" '+(item.done?'checked':'')+' onchange="toggleShopDone(\''+item.id+'\', this.checked)">';
+    html += '<div class="shop-main"><div class="shop-name">'+escapeHtml(item.name)+'</div>';
+    if(item.note) html += '<div class="shop-note">'+escapeHtml(item.note)+'</div>';
+    html += '</div>';
+    html += '<button class="icon-btn" onclick="askDeleteShop(\''+item.id+'\')" aria-label="Xóa">✕</button>';
+    html += '</div>';
+  });
+
+  if(done.length>0){
+    html += '<div style="text-align:center;margin-top:10px;"><button class="btn-ghost" onclick="clearDoneShop()">Xóa các mục đã mua ('+done.length+')</button></div>';
+  }
+  return html;
+}
+
+function renderForm(){
+  const editing = editingId ? products.find(p=>p.id===editingId) : null;
+  let html = '<div class="overlay" onclick="if(event.target===this) closeForm()">';
+  html += '<div class="modal">';
+  html += '<h2>'+(editing?'Sửa giá':'Thêm giá mới')+'</h2>';
+  html += '<form onsubmit="submitForm(event)">';
+  html += '<div class="field"><label>Tên sản phẩm</label><input name="name" required value="'+escapeHtml(editing?editing.name:'')+'" placeholder="VD: Sữa tươi Vinamilk 1L"></div>';
+  html += '<div class="field-row">';
+  html += '<div class="field"><label>Cửa hàng</label><input name="store" required value="'+escapeHtml(editing?editing.store:'')+'" placeholder="VD: Winmart, Bách Hóa Xanh"></div>';
+  html += '<div class="field"><label>Danh mục</label><input name="category" value="'+escapeHtml(editing?editing.category||'':'')+'" placeholder="Tùy chọn"></div>';
+  html += '</div>';
+  html += '<div class="field-row">';
+  html += '<div class="field"><label>Định lượng</label><input name="qty" type="number" step="any" min="0.01" required value="'+(editing?editing.qty:'')+'" placeholder="VD: 1, 500"></div>';
+  html += '<div class="field"><label>Đơn vị tính</label><input name="unit" required value="'+escapeHtml(editing?editing.unit:'')+'" placeholder="lít, kg, g, cái..."></div>';
+  html += '</div>';
+  html += '<div class="field-row">';
+  html += '<div class="field"><label>Giá gốc</label><input name="price" type="number" step="any" min="0" required value="'+(editing?editing.price:'')+'" placeholder="VNĐ"></div>';
+  html += '<div class="field"><label>Giá sau KM</label><input name="salePrice" type="number" step="any" min="0" value="'+(editing&&editing.sale_price!=null?editing.sale_price:'')+'" placeholder="Nếu có"></div>';
+  html += '</div>';
+  html += '<div class="field"><label>Ngày cập nhật</label><input name="date" type="date" value="'+(editing?editing.date:todayStr())+'"></div>';
+  if(!editing) html += '<div class="banner" style="margin-bottom:13px;background:#EEF3EA;border-color:var(--sage);color:var(--ink-soft);">Mẹo: nếu sản phẩm + cửa hàng này đã có giá cũ, cứ "Thêm giá" bình thường (đừng Sửa) để giữ lại lịch sử giá theo thời gian.</div>';
+  html += '<div class="modal-actions">';
+  html += '<button type="button" class="btn-cancel" onclick="closeForm()">Hủy</button>';
+  html += '<button type="submit" class="btn-save" '+(saving?'disabled':'')+'>'+(saving?'Đang lưu...':'Lưu')+'</button>';
+  html += '</div>';
+  html += '</form>';
+  html += '</div></div>';
+  return html;
+}
+
+function renderConfirmDeleteGia(){
+  return '<div class="overlay" onclick="if(event.target===this) cancelDelete()">'
+    + '<div class="confirm-box"><p>Xóa mục giá này? Không thể hoàn tác.</p>'
+    + '<div class="modal-actions"><button class="btn-cancel" onclick="cancelDelete()">Hủy</button>'
+    + '<button class="btn-save" style="background:var(--brick)" onclick="doDelete()">Xóa</button></div></div></div>';
+}
+function renderConfirmDeleteShop(){
+  return '<div class="overlay" onclick="if(event.target===this) cancelDeleteShop()">'
+    + '<div class="confirm-box"><p>Xóa mục này khỏi danh sách mua?</p>'
+    + '<div class="modal-actions"><button class="btn-cancel" onclick="cancelDeleteShop()">Hủy</button>'
+    + '<button class="btn-save" style="background:var(--brick)" onclick="doDeleteShop()">Xóa</button></div></div></div>';
+}
+function renderHistoryModal(){
+  const entries = products.filter(p=>p.name.trim().toLowerCase()===historyKey);
+  const displayName = entries.length ? entries[0].name : '';
+  let html = '<div class="overlay" onclick="if(event.target===this) closeHistory()">';
+  html += '<div class="modal wide">';
+  html += '<h2>Lịch sử giá · '+escapeHtml(displayName)+'</h2>';
+  html += '<div class="chart-wrap"><canvas id="historyCanvas" height="220"></canvas></div>';
+  html += '<div class="modal-actions"><button type="button" class="btn-cancel" onclick="closeHistory()" style="flex:1;">Đóng</button></div>';
+  html += '</div></div>';
+  return html;
 }
 
 if('serviceWorker' in navigator){
