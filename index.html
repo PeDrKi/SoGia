@@ -139,7 +139,8 @@
 <script src="./config.js"></script>
 <script>
 const NOT_CONFIGURED = !SUPABASE_URL || SUPABASE_URL.indexOf('YOUR_SUPABASE_URL') === 0;
-const COMMON_UNITS = ['kg','g','lít','ml','cái','quả','lon','chai','túi','gói','hộp','thùng','vỉ','bó','cây','ổ','miếng','chục','lọ','bịch','viên'];
+const COMMON_UNITS = ['kg','g','lít','ml','cái','quả','viên','miếng','chục'];
+const COMMON_PACKAGE_TYPES = ['lon','chai','hộp giấy','hộp nhựa','hộp','túi','gói','thùng','vỉ','bó','cây','ổ','lọ','bịch'];
 let sb = null;
 if(!NOT_CONFIGURED){
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -237,6 +238,7 @@ async function submitForm(e){
   const subcategory = f.subcategory.value.trim();
   const subcategory2 = f.subcategory2.value.trim();
   const unit = f.unit.value.trim() || 'sp';
+  const package_type = f.packageType.value.trim();
   const qty = parseFloat(f.qty.value);
   const price = parseFloat(f.price.value);
   const salePriceRaw = f.salePrice.value;
@@ -259,7 +261,7 @@ async function submitForm(e){
       const { data: urlData } = sb.storage.from('product-images').getPublicUrl(filePath);
       image_url = urlData.publicUrl;
     }
-    const payload = {name, store, branch: branch || null, category, subcategory: subcategory || null, subcategory2: subcategory2 || null, unit, qty, price, sale_price, date, image_url};
+    const payload = {name, store, branch: branch || null, category, subcategory: subcategory || null, subcategory2: subcategory2 || null, unit, package_type: package_type || null, qty, price, sale_price, date, image_url};
     if(editingId){
       const { error } = await sb.from('products').update(payload).eq('id', editingId);
       if(error) throw error;
@@ -396,6 +398,7 @@ function tableSortValue(p, key){
     case 'subcategory': return (p.subcategory||'').toLowerCase();
     case 'subcategory2': return (p.subcategory2||'').toLowerCase();
     case 'unit': return p.unit.toLowerCase();
+    case 'package_type': return (p.package_type||'').toLowerCase();
     case 'qty': return parseFloat(p.qty) || 0;
     case 'price': return parseFloat(p.price) || 0;
     case 'sale_price': return (p.sale_price!=null && p.sale_price!=='') ? parseFloat(p.sale_price) : Infinity;
@@ -472,9 +475,9 @@ function closeHistory(){
 
 /* ---------- Xuất CSV ---------- */
 function exportCSV(){
-  const headers = ['Tên sản phẩm','Cửa hàng','Chi nhánh','Danh mục','Danh mục con','Danh mục con cấp 2','Đơn vị tính','Định lượng','Giá tiền','Giá sau khuyến mãi','Ngày cập nhật','Đơn giá quy đổi'];
+  const headers = ['Tên sản phẩm','Cửa hàng','Chi nhánh','Danh mục','Danh mục con','Danh mục con cấp 2','Đơn vị tính','Loại bao bì','Định lượng','Giá tiền','Giá sau khuyến mãi','Ngày cập nhật','Đơn giá quy đổi'];
   const rows = products.map(p => [
-    p.name, p.store, p.branch||'', p.category||'', p.subcategory||'', p.subcategory2||'', p.unit, p.qty, p.price, p.sale_price ?? '', p.date,
+    p.name, p.store, p.branch||'', p.category||'', p.subcategory||'', p.subcategory2||'', p.unit, p.package_type||'', p.qty, p.price, p.sale_price ?? '', p.date,
     isNaN(unitPrice(p)) ? '' : Math.round(unitPrice(p))
   ]);
   const csvLines = [headers, ...rows].map(r =>
@@ -705,7 +708,7 @@ function renderProductView(){
       if(isBest) html += '<div class="stamp">giá tốt nhất</div>';
       html += '<div class="row-main">';
       html += '<div class="row-store">'+escapeHtml(storeLabel(p))+'</div>';
-      html += '<div class="row-meta">'+escapeHtml(String(p.qty))+' '+escapeHtml(p.unit)+' · cập nhật '+escapeHtml(p.date)+'</div>';
+      html += '<div class="row-meta">'+escapeHtml(String(p.qty))+' '+escapeHtml(p.unit)+(p.package_type?' · '+escapeHtml(p.package_type):'')+' · cập nhật '+escapeHtml(p.date)+'</div>';
       html += '</div>';
       html += '<div class="row-price">';
       if(hasSale) html += '<span class="price-old">'+fmtVND(p.price)+'</span>';
@@ -742,7 +745,7 @@ function renderStoreView(){
       if(p.image_url) html += '<img class="group-thumb" src="'+escapeHtml(p.image_url)+'">';
       html += '<div class="row-main">';
       html += '<div class="row-store">'+escapeHtml(p.name)+'</div>';
-      html += '<div class="row-meta">'+escapeHtml(String(p.qty))+' '+escapeHtml(p.unit)+(p.category?' · '+escapeHtml(p.category):'')+' · cập nhật '+escapeHtml(p.date)+'</div>';
+      html += '<div class="row-meta">'+escapeHtml(String(p.qty))+' '+escapeHtml(p.unit)+(p.package_type?' · '+escapeHtml(p.package_type):'')+(p.category?' · '+escapeHtml(p.category):'')+' · cập nhật '+escapeHtml(p.date)+'</div>';
       html += '</div>';
       html += '<div class="row-price">';
       if(hasSale) html += '<span class="price-old">'+fmtVND(p.price)+'</span>';
@@ -780,6 +783,7 @@ function renderTableView(){
   html += '<th onclick="toggleTableSort(\'subcategory2\')">Danh mục con 2'+sortArrow('subcategory2')+'</th>';
   html += '<th class="num" onclick="toggleTableSort(\'qty\')">Định lượng'+sortArrow('qty')+'</th>';
   html += '<th>ĐVT</th>';
+  html += '<th onclick="toggleTableSort(\'package_type\')">Loại bao bì'+sortArrow('package_type')+'</th>';
   html += '<th class="num" onclick="toggleTableSort(\'price\')">Giá gốc'+sortArrow('price')+'</th>';
   html += '<th class="num" onclick="toggleTableSort(\'sale_price\')">Giá KM'+sortArrow('sale_price')+'</th>';
   html += '<th class="num" onclick="toggleTableSort(\'unitPrice\')">Đơn giá'+sortArrow('unitPrice')+'</th>';
@@ -798,6 +802,7 @@ function renderTableView(){
     html += '<td>'+escapeHtml(p.subcategory2||'—')+'</td>';
     html += '<td class="num">'+escapeHtml(String(p.qty))+'</td>';
     html += '<td>'+escapeHtml(p.unit)+'</td>';
+    html += '<td>'+escapeHtml(p.package_type||'—')+'</td>';
     html += '<td class="num">'+fmtVND(p.price)+'</td>';
     html += '<td class="num">'+(p.sale_price!=null?fmtVND(p.sale_price):'—')+'</td>';
     html += '<td class="num">'+fmtUnit(up, p.unit)+'</td>';
@@ -852,6 +857,7 @@ function renderForm(){
   const subcategoriesList = Array.from(new Set(products.map(p=>p.subcategory).filter(Boolean))).sort();
   const subcategories2List = Array.from(new Set(products.map(p=>p.subcategory2).filter(Boolean))).sort();
   const unitsList = Array.from(new Set([...COMMON_UNITS, ...products.map(p=>p.unit).filter(Boolean)]));
+  const packageTypesList = Array.from(new Set([...COMMON_PACKAGE_TYPES, ...products.map(p=>p.package_type).filter(Boolean)]));
   let html = '<div class="overlay" onclick="if(event.target===this) closeForm()">';
   html += '<div class="modal">';
   html += '<h2>'+(editing?'Sửa giá':'Thêm giá mới')+'</h2>';
@@ -870,6 +876,7 @@ function renderForm(){
   html += '<div class="field"><label>Định lượng</label><input name="qty" type="number" step="any" min="0.01" required value="'+(editing?editing.qty:'')+'" placeholder="VD: 1, 500"></div>';
   html += '<div class="field"><label>Đơn vị tính</label><input name="unit" list="dl-units" required value="'+escapeHtml(editing?editing.unit:'')+'" placeholder="lít, kg, g, cái..."></div>';
   html += '</div>';
+  html += '<div class="field"><label>Loại bao bì (tùy chọn)</label><input name="packageType" list="dl-package-types" value="'+escapeHtml(editing?editing.package_type||'':'')+'" placeholder="VD: lon, hộp giấy, túi..."></div>';
   html += '<div class="field-row">';
   html += '<div class="field"><label>Giá gốc</label><input name="price" type="number" step="any" min="0" required value="'+(editing?editing.price:'')+'" placeholder="VNĐ"></div>';
   html += '<div class="field"><label>Giá sau KM</label><input name="salePrice" type="number" step="any" min="0" value="'+(editing&&editing.sale_price!=null?editing.sale_price:'')+'" placeholder="Nếu có"></div>';
@@ -897,6 +904,7 @@ function renderForm(){
   html += '<datalist id="dl-subcategories">'+subcategoriesList.map(n=>'<option value="'+escapeHtml(n)+'">').join('')+'</datalist>';
   html += '<datalist id="dl-subcategories2">'+subcategories2List.map(n=>'<option value="'+escapeHtml(n)+'">').join('')+'</datalist>';
   html += '<datalist id="dl-units">'+unitsList.map(n=>'<option value="'+escapeHtml(n)+'">').join('')+'</datalist>';
+  html += '<datalist id="dl-package-types">'+packageTypesList.map(n=>'<option value="'+escapeHtml(n)+'">').join('')+'</datalist>';
   html += '</div></div>';
   return html;
 }
