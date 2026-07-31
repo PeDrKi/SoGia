@@ -140,7 +140,7 @@
 <script>
 const NOT_CONFIGURED = !SUPABASE_URL || SUPABASE_URL.indexOf('YOUR_SUPABASE_URL') === 0;
 const COMMON_UNITS = ['kg','g','lít','ml','cái','quả','viên','miếng','chục'];
-const COMMON_PACKAGE_TYPES = ['lon','chai','hộp giấy','hộp nhựa','hộp','túi','gói','thùng','vỉ','bó','cây','ổ','lọ','bịch','tuýp'];
+const COMMON_PACKAGE_TYPES = ['lon','chai','hộp giấy','hộp nhựa','hộp','túi','gói','thùng','vỉ','bó','cây','ổ','lọ','bịch','tuýp`'];
 let sb = null;
 if(!NOT_CONFIGURED){
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
