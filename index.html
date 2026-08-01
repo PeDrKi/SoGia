@@ -100,8 +100,10 @@
   .loading{text-align:center;padding:60px;color:var(--ink-soft);font-size:14px;}
   .banner{background:#FBE9E7;border:1px solid var(--brick);color:var(--brick-dark);border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:18px;line-height:1.5;}
   .banner code{background:rgba(0,0,0,0.06);padding:1px 5px;border-radius:4px;}
-  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper-2);padding:10px 18px;border-radius:20px;font-size:13px;z-index:60;opacity:0;transition:opacity .25s;pointer-events:none;}
-  .toast.show{opacity:1;}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper-2);padding:10px 18px;border-radius:14px;font-size:13px;z-index:60;opacity:0;transition:opacity .25s;pointer-events:none;overflow:hidden;max-width:88vw;}
+  .toast.show{opacity:1;pointer-events:auto;}
+  .toast-bar-track{position:absolute;left:0;bottom:0;width:100%;height:3px;background:rgba(255,255,255,0.18);}
+  .toast-bar{height:100%;width:100%;background:var(--turmeric);}
   .chart-wrap{background:#fff;border:1px solid var(--line-soft);border-radius:10px;padding:12px;margin-bottom:6px;}
 
   .shop-item{display:flex;align-items:center;gap:10px;background:var(--paper-2);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
@@ -241,6 +243,7 @@ let saving = false;
 let historyKey = null;
 let historyChart = null;
 let removeImageFlag = false;
+let showAdvancedFields = false;
 
 function fmtVND(n){
   if(n===null||n===undefined||isNaN(n)) return '—';
@@ -285,6 +288,13 @@ function todayStr(){
   return new Date().toISOString().slice(0,10);
 }
 function showToast(msg){
+  if(typeof undoTimeoutId !== 'undefined' && undoTimeoutId){
+    clearTimeout(undoTimeoutId);
+    undoTimeoutId = null;
+    const commit = pendingCommit;
+    pendingUndo = null; pendingCommit = null;
+    if(commit) commit();
+  }
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
@@ -295,9 +305,23 @@ let pendingUndo = null;
 let pendingCommit = null;
 function showUndoToast(msg, onUndo, onCommit){
   if(undoTimeoutId){ clearTimeout(undoTimeoutId); if(pendingCommit) pendingCommit(); }
+  const duration = 8000;
   const t = document.getElementById('toast');
-  t.innerHTML = escapeHtml(msg) + ' <button onclick="triggerUndo()" style="margin-left:10px;text-decoration:underline;background:none;border:none;color:var(--turmeric);cursor:pointer;font-weight:600;font-size:13px;">Hoàn tác</button>';
+  t.innerHTML =
+    '<div style="display:flex;align-items:center;gap:10px;">' +
+    '<span>'+escapeHtml(msg)+'</span>' +
+    '<button onclick="triggerUndo()" style="text-decoration:underline;background:none;border:none;color:var(--turmeric);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap;">Hoàn tác</button>' +
+    '</div>' +
+    '<div class="toast-bar-track"><div class="toast-bar" id="toastBar"></div></div>';
   t.classList.add('show');
+  const bar = document.getElementById('toastBar');
+  if(bar){
+    bar.style.transition = 'none';
+    bar.style.width = '100%';
+    void bar.offsetWidth; // ép trình duyệt vẽ lại trước khi bắt đầu transition
+    bar.style.transition = 'width ' + duration + 'ms linear';
+    bar.style.width = '0%';
+  }
   pendingUndo = onUndo;
   pendingCommit = onCommit;
   undoTimeoutId = setTimeout(()=>{
@@ -305,7 +329,7 @@ function showUndoToast(msg, onUndo, onCommit){
     const commit = pendingCommit;
     pendingUndo = null; pendingCommit = null; undoTimeoutId = null;
     if(commit) commit();
-  }, 5000);
+  }, duration);
 }
 function triggerUndo(){
   if(undoTimeoutId){ clearTimeout(undoTimeoutId); undoTimeoutId = null; }
@@ -460,77 +484,138 @@ function exportJSON(){
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+let inputModalState = null;
+function showInputModal(opts){
+  inputModalState = Object.assign({
+    title: '', message: '', defaultValue: '', showInput: true,
+    confirmLabel: 'Xác nhận', cancelLabel: 'Hủy', onConfirm: ()=>{}
+  }, opts);
+  render();
+  setTimeout(()=>{
+    const el = document.getElementById('inputModalField');
+    if(el){ el.focus(); el.select(); }
+  }, 30);
+}
+function closeInputModal(){ inputModalState = null; render(); }
+function confirmInputModal(e){
+  if(e) e.preventDefault();
+  const st = inputModalState;
+  const val = st.showInput ? document.getElementById('inputModalField').value : true;
+  inputModalState = null;
+  if(st.onConfirm) st.onConfirm(val);
+}
+function renderInputModal(){
+  const st = inputModalState;
+  let html = '<div class="overlay" onclick="if(event.target===this) closeInputModal()">';
+  html += '<div class="confirm-box" style="max-width:360px;text-align:left;">';
+  if(st.title) html += '<h2 style="font-family:\'Fraunces\',serif;font-size:18px;margin:0 0 8px;">'+escapeHtml(st.title)+'</h2>';
+  if(st.message) html += '<p style="font-size:13.5px;color:var(--ink-soft);margin:0 0 14px;">'+escapeHtml(st.message)+'</p>';
+  html += '<form onsubmit="confirmInputModal(event)">';
+  if(st.showInput){
+    html += '<input id="inputModalField" type="text" value="'+escapeHtml(st.defaultValue||'')+'" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:14px;box-sizing:border-box;">';
+  }
+  html += '<div class="modal-actions">';
+  html += '<button type="button" class="btn-cancel" onclick="closeInputModal()">'+escapeHtml(st.cancelLabel)+'</button>';
+  html += '<button type="submit" class="btn-save">'+escapeHtml(st.confirmLabel)+'</button>';
+  html += '</div></form></div></div>';
+  return html;
+}
+
 async function importJSONFile(input){
   const file = input.files && input.files[0];
-  if(!file) return;
-  const ok = confirm('Khôi phục từ file sao lưu này? Dữ liệu trong file sẽ được thêm vào (hoặc ghi đè nếu trùng) dữ liệu hiện tại, không xóa các mục khác.');
-  if(!ok){ input.value = ''; return; }
-  try{
-    const text = await file.text();
-    const backup = JSON.parse(text);
-    if(!backup || !Array.isArray(backup.products)) throw new Error('File sao lưu không đúng định dạng');
-    if(backup.products.length){
-      const { error: e1 } = await sb.from('products').upsert(backup.products);
-      if(e1) throw e1;
-    }
-    if(Array.isArray(backup.shopping_list) && backup.shopping_list.length){
-      const { error: e2 } = await sb.from('shopping_list').upsert(backup.shopping_list);
-      if(e2) throw e2;
-    }
-    showToast('Đã khôi phục dữ liệu từ file sao lưu');
-    await loadData();
-  }catch(e){
-    showToast('Lỗi khôi phục: ' + (e.message || e));
-  }
   input.value = '';
+  if(!file) return;
+  showInputModal({
+    title: 'Khôi phục dữ liệu',
+    message: 'Dữ liệu trong file sẽ được thêm vào (hoặc ghi đè nếu trùng) dữ liệu hiện tại, không xóa các mục khác. Tiếp tục?',
+    showInput: false,
+    confirmLabel: 'Khôi phục',
+    onConfirm: async ()=>{
+      try{
+        const text = await file.text();
+        const backup = JSON.parse(text);
+        if(!backup || !Array.isArray(backup.products)) throw new Error('File sao lưu không đúng định dạng');
+        if(backup.products.length){
+          const { error: e1 } = await sb.from('products').upsert(backup.products);
+          if(e1) throw e1;
+        }
+        if(Array.isArray(backup.shopping_list) && backup.shopping_list.length){
+          const { error: e2 } = await sb.from('shopping_list').upsert(backup.shopping_list);
+          if(e2) throw e2;
+        }
+        showToast('Đã khôi phục dữ liệu từ file sao lưu');
+        await loadData();
+      }catch(e){
+        showToast('Lỗi khôi phục: ' + (e.message || e));
+      }
+    }
+  });
 }
 function closeManage(){ showManage = false; render(); }
 
-async function renameStore(oldName){
-  const newName = prompt('Đổi tên cửa hàng "'+oldName+'" thành:', oldName);
-  if(newName === null) return;
-  const trimmed = newName.trim();
-  if(!trimmed || trimmed === oldName) return;
-  try{
-    const { error } = await sb.from('products').update({ store: trimmed }).eq('store', oldName);
-    if(error) throw error;
-    showToast('Đã đổi tên cửa hàng');
-    await loadData();
-  }catch(e){
-    showToast('Lỗi: ' + (e.message || e));
-  }
-}
-async function renameProductName(oldName){
-  const newName = prompt('Đổi tên sản phẩm "'+oldName+'" thành:', oldName);
-  if(newName === null) return;
-  const trimmed = newName.trim();
-  if(!trimmed || trimmed === oldName) return;
-  try{
-    const { error } = await sb.from('products').update({ name: trimmed }).eq('name', oldName);
-    if(error) throw error;
-    showToast('Đã đổi tên sản phẩm');
-    await loadData();
-  }catch(e){
-    showToast('Lỗi: ' + (e.message || e));
-  }
-}
-async function renameCategoryTag(oldName){
-  const newName = prompt('Đổi tên danh mục "'+oldName+'" thành:', oldName);
-  if(newName === null) return;
-  const trimmed = newName.trim();
-  if(!trimmed || trimmed === oldName) return;
-  try{
-    const affected = products.filter(p => (p.categories||[]).includes(oldName));
-    for(const p of affected){
-      const newCats = Array.from(new Set(p.categories.map(c => c === oldName ? trimmed : c)));
-      const { error } = await sb.from('products').update({ categories: newCats }).eq('id', p.id);
-      if(error) throw error;
+function renameStore(oldName){
+  showInputModal({
+    title: 'Đổi tên cửa hàng',
+    message: 'Áp dụng cho mọi lượt ghi giá đang dùng tên "'+oldName+'".',
+    defaultValue: oldName,
+    confirmLabel: 'Đổi tên',
+    onConfirm: async (val)=>{
+      const trimmed = (val||'').trim();
+      if(!trimmed || trimmed === oldName) return;
+      try{
+        const { error } = await sb.from('products').update({ store: trimmed }).eq('store', oldName);
+        if(error) throw error;
+        showToast('Đã đổi tên cửa hàng');
+        await loadData();
+      }catch(e){
+        showToast('Lỗi: ' + (e.message || e));
+      }
     }
-    showToast('Đã đổi tên danh mục');
-    await loadData();
-  }catch(e){
-    showToast('Lỗi: ' + (e.message || e));
-  }
+  });
+}
+function renameProductName(oldName){
+  showInputModal({
+    title: 'Đổi tên sản phẩm',
+    message: 'Áp dụng cho mọi lượt ghi giá đang dùng tên "'+oldName+'".',
+    defaultValue: oldName,
+    confirmLabel: 'Đổi tên',
+    onConfirm: async (val)=>{
+      const trimmed = (val||'').trim();
+      if(!trimmed || trimmed === oldName) return;
+      try{
+        const { error } = await sb.from('products').update({ name: trimmed }).eq('name', oldName);
+        if(error) throw error;
+        showToast('Đã đổi tên sản phẩm');
+        await loadData();
+      }catch(e){
+        showToast('Lỗi: ' + (e.message || e));
+      }
+    }
+  });
+}
+function renameCategoryTag(oldName){
+  showInputModal({
+    title: 'Đổi tên danh mục',
+    message: 'Áp dụng cho mọi sản phẩm đang gắn danh mục "'+oldName+'".',
+    defaultValue: oldName,
+    confirmLabel: 'Đổi tên',
+    onConfirm: async (val)=>{
+      const trimmed = (val||'').trim();
+      if(!trimmed || trimmed === oldName) return;
+      try{
+        const affected = products.filter(p => (p.categories||[]).includes(oldName));
+        for(const p of affected){
+          const newCats = Array.from(new Set(p.categories.map(c => c === oldName ? trimmed : c)));
+          const { error } = await sb.from('products').update({ categories: newCats }).eq('id', p.id);
+          if(error) throw error;
+        }
+        showToast('Đã đổi tên danh mục');
+        await loadData();
+      }catch(e){
+        showToast('Lỗi: ' + (e.message || e));
+      }
+    }
+  });
 }
 
 function renderManageModal(){
@@ -603,10 +688,17 @@ async function loadData(){
 }
 
 /* ---------- Sổ giá: form thêm/sửa ---------- */
-function openAdd(){ editingId = null; removeImageFlag = false; showForm = true; render(); }
-function openEdit(id){ editingId = id; removeImageFlag = false; showForm = true; render(); }
-function closeForm(){ showForm = false; editingId = null; removeImageFlag = false; render(); }
+function openAdd(){ editingId = null; removeImageFlag = false; showAdvancedFields = false; showForm = true; render(); }
+function openEdit(id){ editingId = id; removeImageFlag = false; showAdvancedFields = false; showForm = true; render(); }
+function closeForm(){ showForm = false; editingId = null; removeImageFlag = false; showAdvancedFields = false; render(); }
 function markRemoveImage(){ removeImageFlag = true; render(); }
+function toggleAdvancedFields(){
+  showAdvancedFields = !showAdvancedFields;
+  const el = document.getElementById('advancedFields');
+  const btn = document.getElementById('advancedToggleBtn');
+  if(el) el.style.display = showAdvancedFields ? 'block' : 'none';
+  if(btn) btn.textContent = showAdvancedFields ? '− Ẩn bớt chi tiết' : '+ Thêm chi tiết (chi nhánh, danh mục, ảnh...)';
+}
 
 function compressImage(file, maxDim, quality){
   maxDim = maxDim || 1000;
@@ -1023,6 +1115,7 @@ function render(){
   if(confirmDeleteShopId) html += renderConfirmDeleteShop();
   if(historyKey) html += renderHistoryModal();
   if(showManage) html += renderManageModal();
+  if(inputModalState) html += renderInputModal();
   if(!NOT_CONFIGURED && activeTab==='gia') html += '<button class="fab" onclick="openAdd()" aria-label="Thêm giá">+</button>';
 
   app.innerHTML = html;
@@ -1319,31 +1412,34 @@ function renderForm(){
   const subcategories2List = Array.from(new Set(products.map(p=>p.subcategory2).filter(Boolean))).sort();
   const unitsList = Array.from(new Set([...COMMON_UNITS, ...products.map(p=>p.unit).filter(Boolean)]));
   const packageTypesList = Array.from(new Set([...COMMON_PACKAGE_TYPES, ...products.map(p=>p.package_type).filter(Boolean)]));
+  const hasAdvancedData = !!(editing && (editing.branch || (editing.categories&&editing.categories.length) || editing.subcategory || editing.subcategory2 || editing.package_type || editing.sale_price || editing.image_url));
+  showAdvancedFields = showAdvancedFields || hasAdvancedData;
+
   let html = '<div class="overlay" onclick="if(event.target===this) closeForm()">';
   html += '<div class="modal">';
   html += '<h2>'+(editing?'Sửa giá':'Thêm giá mới')+'</h2>';
   html += '<form onsubmit="submitForm(event)">';
   html += '<div class="field"><label>Tên sản phẩm</label><input name="name" list="dl-names" required value="'+escapeHtml(editing?editing.name:'')+'" placeholder="VD: Sữa tươi Vinamilk 1L"></div>';
-  html += '<div class="field-row">';
   html += '<div class="field"><label>Cửa hàng / Hệ thống</label><input name="store" list="dl-stores" required value="'+escapeHtml(editing?editing.store:'')+'" placeholder="VD: Aeon, Winmart"></div>';
-  html += '<div class="field"><label>Chi nhánh</label><input name="branch" list="dl-branches" value="'+escapeHtml(editing?editing.branch||'':'')+'" placeholder="VD: Long Biên (nếu có)"></div>';
+  html += '<div class="field-row">';
+  html += '<div class="field"><label>Định lượng</label><input name="qty" type="number" step="any" min="0.01" required value="'+(editing?editing.qty:'')+'" placeholder="VD: 1, 500"></div>';
+  html += '<div class="field"><label>Đơn vị tính</label><input name="unit" list="dl-units" required value="'+escapeHtml(editing?editing.unit:'')+'" placeholder="lít, kg, g, cái..."></div>';
   html += '</div>';
+  html += '<div class="field"><label>Giá</label><input name="price" type="number" step="any" min="0" required value="'+(editing?editing.price:'')+'" placeholder="VNĐ"></div>';
+  html += '<div class="field"><label>Ngày cập nhật</label><input name="date" type="date" value="'+(editing?editing.date:todayStr())+'"></div>';
+
+  html += '<button type="button" id="advancedToggleBtn" class="chip-btn" onclick="toggleAdvancedFields()" style="margin-bottom:13px;">'+(showAdvancedFields?'− Ẩn bớt chi tiết':'+ Thêm chi tiết (chi nhánh, danh mục, ảnh...)')+'</button>';
+
+  html += '<div id="advancedFields" style="display:'+(showAdvancedFields?'block':'none')+';">';
+  html += '<div class="field"><label>Chi nhánh</label><input name="branch" list="dl-branches" value="'+escapeHtml(editing?editing.branch||'':'')+'" placeholder="VD: Long Biên (nếu có)"></div>';
   html += '<div class="field-row">';
   html += '<div class="field"><label>Danh mục (có thể nhập nhiều, cách nhau bởi dấu phẩy)</label><input name="category" list="dl-categories" value="'+escapeHtml(editing&&editing.categories?editing.categories.join(', '):'')+'" placeholder="VD: Gia vị, Đồ khô"></div>';
   html += '<div class="field"><label>Danh mục con</label><input name="subcategory" list="dl-subcategories" value="'+escapeHtml(editing?editing.subcategory||'':'')+'" placeholder="VD: Muối"></div>';
   html += '</div>';
   html += '<div class="field"><label>Danh mục con cấp 2</label><input name="subcategory2" list="dl-subcategories2" value="'+escapeHtml(editing?editing.subcategory2||'':'')+'" placeholder="VD: Muối tinh"></div>';
-  html += '<div class="field-row">';
-  html += '<div class="field"><label>Định lượng</label><input name="qty" type="number" step="any" min="0.01" required value="'+(editing?editing.qty:'')+'" placeholder="VD: 1, 500"></div>';
-  html += '<div class="field"><label>Đơn vị tính</label><input name="unit" list="dl-units" required value="'+escapeHtml(editing?editing.unit:'')+'" placeholder="lít, kg, g, cái..."></div>';
-  html += '</div>';
-  html += '<div class="field"><label>Loại bao bì (tùy chọn)</label><input name="packageType" list="dl-package-types" value="'+escapeHtml(editing?editing.package_type||'':'')+'" placeholder="VD: lon, hộp giấy, túi..."></div>';
-  html += '<div class="field-row">';
-  html += '<div class="field"><label>Giá gốc</label><input name="price" type="number" step="any" min="0" required value="'+(editing?editing.price:'')+'" placeholder="VNĐ"></div>';
-  html += '<div class="field"><label>Giá sau KM</label><input name="salePrice" type="number" step="any" min="0" value="'+(editing&&editing.sale_price!=null?editing.sale_price:'')+'" placeholder="Nếu có"></div>';
-  html += '</div>';
-  html += '<div class="field"><label>Ngày cập nhật</label><input name="date" type="date" value="'+(editing?editing.date:todayStr())+'"></div>';
-  html += '<div class="field"><label>Hình ảnh (tùy chọn)</label>';
+  html += '<div class="field"><label>Loại bao bì</label><input name="packageType" list="dl-package-types" value="'+escapeHtml(editing?editing.package_type||'':'')+'" placeholder="VD: lon, hộp giấy, túi..."></div>';
+  html += '<div class="field"><label>Giá sau khuyến mãi</label><input name="salePrice" type="number" step="any" min="0" value="'+(editing&&editing.sale_price!=null?editing.sale_price:'')+'" placeholder="Nếu có"></div>';
+  html += '<div class="field"><label>Hình ảnh</label>';
   if(editing && editing.image_url && !removeImageFlag){
     html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
     html += '<img src="'+escapeHtml(editing.image_url)+'" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line);">';
@@ -1352,6 +1448,8 @@ function renderForm(){
   }
   html += '<input name="image" type="file" accept="image/*">';
   html += '</div>';
+  html += '</div>';
+
   if(!editing) html += '<div class="banner" style="margin-bottom:13px;background:#EEF3EA;border-color:var(--sage);color:var(--ink-soft);">Mẹo: nếu sản phẩm + cửa hàng (+ chi nhánh) này đã có giá cũ, cứ "Thêm giá" bình thường (đừng Sửa) để giữ lại lịch sử giá theo thời gian.</div>';
   html += '<div class="modal-actions">';
   html += '<button type="button" class="btn-cancel" onclick="closeForm()">Hủy</button>';
