@@ -686,6 +686,15 @@ async function loadData(){
   loaded = true;
   render();
 }
+let refreshing = false;
+async function refreshData(){
+  if(refreshing) return;
+  refreshing = true;
+  render();
+  await loadData();
+  refreshing = false;
+  render();
+}
 
 /* ---------- Sổ giá: form thêm/sửa ---------- */
 function openAdd(){ editingId = null; removeImageFlag = false; showAdvancedFields = false; showForm = true; render(); }
@@ -1086,6 +1095,7 @@ function render(){
   html += '<div><h1>Sổ giá</h1><div class="tag">Theo dõi &amp; so sánh giá giữa các cửa hàng</div></div>';
   html += '<div style="display:flex;gap:8px;">';
   if(!NOT_CONFIGURED && activeTab==='gia') html += '<button class="btn-add" onclick="openAdd()">+ Thêm giá</button>';
+  if(typeof SUPABASE_URL !== 'undefined' && !NOT_CONFIGURED) html += '<button class="chip-btn" onclick="refreshData()" aria-label="Làm mới" '+(refreshing?'disabled':'')+' style="font-size:13px;">'+(refreshing?'⏳ Đang tải...':'🔄 Làm mới')+'</button>';
   if(typeof SUPABASE_URL !== 'undefined' && !NOT_CONFIGURED) html += '<button class="icon-btn" onclick="openManage()" aria-label="Quản lý" title="Đổi tên hàng loạt" style="font-size:19px;">⚙</button>';
   if(typeof SUPABASE_URL !== 'undefined' && !NOT_CONFIGURED) html += '<button class="icon-btn" onclick="doLogout()" aria-label="Đăng xuất" title="Đăng xuất" style="font-size:19px;">🔒</button>';
   html += '</div>';
@@ -1167,6 +1177,12 @@ function renderGiaTab(){
   }
   html += '<button class="btn-ghost" onclick="exportCSV()">⬇ Xuất CSV</button>';
   html += '</div>';
+
+  const isFiltering = !!(filterText.trim() || filterStore || filterCategory);
+  if(isFiltering){
+    const filteredCount = groupProducts().length;
+    html += '<div style="font-size:12.5px;color:var(--ink-soft);margin:-10px 0 16px;">Hiện <b style="color:var(--ink);">'+filteredCount+'</b> / '+totalProducts+' sản phẩm phù hợp bộ lọc</div>';
+  }
 
   if(viewMode === 'store') return html + renderStoreView();
   if(viewMode === 'table') return html + renderTableView();
