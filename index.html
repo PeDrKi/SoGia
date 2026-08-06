@@ -850,11 +850,15 @@ function getCategories(){
   return Array.from(set).sort();
 }
 
+function productKeyOf(p){
+  return p.name.trim().toLowerCase() + '‖' + (p.brand||'').trim().toLowerCase() + '‖' + p.unit + '‖' + p.qty + '‖' + (p.package_type||'');
+}
+
 function groupProducts(){
   const groups = {};
   products.forEach(p=>{
-    const key = p.name.trim().toLowerCase();
-    if(!groups[key]) groups[key] = {key, name: p.name, subcategory: p.subcategory, subcategory2: p.subcategory2, items: []};
+    const key = productKeyOf(p);
+    if(!groups[key]) groups[key] = {key, name: p.name, brand: p.brand||'', unit: p.unit, qty: p.qty, package_type: p.package_type||'', subcategory: p.subcategory, subcategory2: p.subcategory2, items: []};
     groups[key].items.push(p);
   });
   let list = Object.values(groups);
@@ -871,7 +875,7 @@ function groupProducts(){
     g.categories = Array.from(new Set(g.items.flatMap(p=>p.categories||[]))).filter(Boolean);
     const latestByStore = {};
     g.items.forEach(p=>{
-      const comboKey = p.store + '‖' + (p.branch||'') + '‖' + p.unit + '‖' + p.qty + '‖' + (p.package_type||'');
+      const comboKey = p.store + '‖' + (p.branch||'');
       const cur = latestByStore[comboKey];
       if(!cur || p.date > cur.date) latestByStore[comboKey] = p;
     });
@@ -890,7 +894,7 @@ function groupProducts(){
   if(filterStore) list = list.filter(g=>g.display.length>0);
 
   if(sortMode === 'name'){
-    list.sort((a,b)=>a.name.localeCompare(b.name,'vi'));
+    list.sort((a,b)=>a.name.localeCompare(b.name,'vi') || cmpEmptyStr(a.brand,b.brand) || (a.qty-b.qty));
   }else if(sortMode === 'price'){
     list.sort((a,b)=>{
       if(isNaN(a.bestUnit)) return 1;
@@ -907,7 +911,11 @@ function groupProducts(){
       if(c!==0) return c;
       c = cmpEmptyStr(a.subcategory2, b.subcategory2);
       if(c!==0) return c;
-      return a.name.localeCompare(b.name,'vi');
+      c = a.name.localeCompare(b.name,'vi');
+      if(c!==0) return c;
+      c = cmpEmptyStr(a.brand, b.brand);
+      if(c!==0) return c;
+      return a.qty - b.qty;
     });
   }
   return list;
@@ -922,14 +930,14 @@ function groupByStore(){
     if(filterStore && p.store !== filterStore) return;
     const comboKey = p.store + '‖' + (p.branch||'');
     if(!combos[comboKey]) combos[comboKey] = { store: p.store, branch: p.branch||'', items: {} };
-    const key = p.name.trim().toLowerCase() + '‖' + p.unit + '‖' + p.qty + '‖' + (p.package_type||'');
+    const key = productKeyOf(p);
     const cur = combos[comboKey].items[key];
     if(!cur || p.date > cur.date) combos[comboKey].items[key] = p;
   });
   let list = Object.values(combos).map(c => ({
     store: c.store,
     branch: c.branch,
-    items: Object.values(c.items).sort((a,b)=>a.name.localeCompare(b.name,'vi'))
+    items: Object.values(c.items).sort((a,b)=>a.name.localeCompare(b.name,'vi') || cmpEmptyStr(a.brand,b.brand) || (a.qty-b.qty))
   }));
   list.sort((a,b)=> a.store.localeCompare(b.store,'vi') || a.branch.localeCompare(b.branch,'vi'));
   return list;
@@ -979,23 +987,20 @@ function setViewMode(v){ viewMode = v; saveFilterState(); render(); }
 
 
 function openHistory(key){
-  historyKey = key;
+  historyKey = decodeURIComponent(key);
   render();
   setTimeout(()=>{
     const canvas = document.getElementById('historyCanvas');
     if(!canvas) return;
-    const entries = products.filter(p=>p.name.trim().toLowerCase()===key);
-    const variantOf = e => e.unit + '‖' + e.qty + '‖' + (e.package_type||'');
-    const hasMultipleVariants = new Set(entries.map(variantOf)).size > 1;
-    const combos = Array.from(new Set(entries.map(e=> e.store + '‖' + (e.branch||'') + '‖' + variantOf(e))));
+    const entries = products.filter(p=>productKeyOf(p)===historyKey);
+    const combos = Array.from(new Set(entries.map(e=> e.store + '‖' + (e.branch||''))));
     const dates = Array.from(new Set(entries.map(e=>e.date))).sort();
     const colors = ['#16332C','#B5453A','#D9A441','#6E8B7C','#4C6359','#2E5B4E'];
     const datasets = combos.map((combo,i)=>{
-      const [comboStore, comboBranch, comboUnit, comboQty, comboPkg] = combo.split('‖');
-      let label = comboBranch ? comboStore + ' · ' + comboBranch : comboStore;
-      if(hasMultipleVariants) label += ' (' + comboQty + ' ' + comboUnit + (comboPkg ? ' · ' + comboPkg : '') + ')';
+      const [comboStore, comboBranch] = combo.split('‖');
+      const label = comboBranch ? comboStore + ' · ' + comboBranch : comboStore;
       const byDate = {};
-      entries.filter(e=> (e.store+'‖'+(e.branch||'')+'‖'+variantOf(e)) === combo).forEach(e=>{ byDate[e.date] = unitPrice(e); });
+      entries.filter(e=> (e.store+'‖'+(e.branch||'')) === combo).forEach(e=>{ byDate[e.date] = unitPrice(e); });
       return {
         label: label,
         data: dates.map(d => byDate[d] !== undefined ? byDate[d] : null),
@@ -1063,10 +1068,11 @@ async function addShopItem(name, note){
   }
 }
 function quickAddToShop(groupKey){
-  const g = groupProducts().find(x=>x.key===groupKey);
+  const g = groupProducts().find(x=>x.key===decodeURIComponent(groupKey));
   if(!g || !g.display.length) return;
   const best = g.display[0];
-  const note = storeLabel(best) + ' · ' + fmtUnit(unitPrice(best), best.unit);
+  const sizeBit = g.qty + ' ' + g.unit + (g.package_type ? ' · ' + g.package_type : '');
+  const note = (g.brand ? g.brand + ' · ' : '') + sizeBit + ' · ' + storeLabel(best) + ' · ' + fmtUnit(unitPrice(best), best.unit);
   addShopItem(g.name, note);
 }
 async function submitShopForm(e){
@@ -1238,14 +1244,18 @@ function renderGroupCard(g, showCatLabel){
   html += '<div class="group-head"><div class="group-head-main">';
   if(groupImg) html += '<img class="group-thumb" src="'+escapeHtml(groupImg)+'">';
   html += '<div><h2>'+escapeHtml(g.name)+'</h2>';
+  const variantBits = [];
+  if(g.brand) variantBits.push(g.brand);
+  variantBits.push(g.qty + ' ' + g.unit + (g.package_type ? ' · ' + g.package_type : ''));
+  html += '<div style="font-size:12.5px;color:var(--ink-soft);margin-top:1px;">'+escapeHtml(variantBits.join(' · '))+'</div>';
   if(showCatLabel){
     const parts = [(g.categories||[]).join(', '), g.subcategory, g.subcategory2].filter(v=>v && v.trim());
     if(parts.length) html += '<span class="cat">'+escapeHtml(parts.join(' › '))+'</span>';
   }
   html += '</div></div>';
   html += '<div class="group-head-actions">';
-  if(g.items.length > 1) html += '<button class="chip-btn" onclick="openHistory(\''+g.key+'\')">📈 Lịch sử</button>';
-  html += '<button class="chip-btn" onclick="quickAddToShop(\''+g.key+'\')">🛒 Thêm vào ds mua</button>';
+  if(g.items.length > 1) html += '<button class="chip-btn" onclick="openHistory(\''+encodeURIComponent(g.key)+'\')">📈 Lịch sử</button>';
+  html += '<button class="chip-btn" onclick="quickAddToShop(\''+encodeURIComponent(g.key)+'\')">🛒 Thêm vào ds mua</button>';
   html += '</div></div>';
   html += '<div class="rows">';
   g.display.forEach((p, idx)=>{
@@ -1257,7 +1267,7 @@ function renderGroupCard(g, showCatLabel){
     if(isBest) html += '<div class="stamp">giá tốt nhất</div>';
     html += '<div class="row-main">';
     html += '<div class="row-store">'+escapeHtml(storeLabel(p))+'</div>';
-    html += '<div class="row-meta">'+(p.brand?escapeHtml(p.brand)+' · ':'')+escapeHtml(String(p.qty))+' '+escapeHtml(p.unit)+(p.package_type?' · '+escapeHtml(p.package_type):'')+' · cập nhật '+escapeHtml(p.date)+'</div>';
+    html += '<div class="row-meta">cập nhật '+escapeHtml(p.date)+'</div>';
     html += '</div>';
     html += '<div class="row-price">';
     if(hasSale) html += '<span class="price-old">'+fmtVND(p.price)+'</span>';
@@ -1539,8 +1549,15 @@ function renderConfirmDeleteShop(){
     + '<button class="btn-save" style="background:var(--brick)" onclick="doDeleteShop()">Xóa</button></div></div></div>';
 }
 function renderHistoryModal(){
-  const entries = products.filter(p=>p.name.trim().toLowerCase()===historyKey);
-  const displayName = entries.length ? entries[0].name : '';
+  const entries = products.filter(p=>productKeyOf(p)===historyKey);
+  const first = entries[0];
+  let displayName = first ? first.name : '';
+  if(first){
+    const bits = [];
+    if(first.brand) bits.push(first.brand);
+    bits.push(first.qty + ' ' + first.unit + (first.package_type ? ' · ' + first.package_type : ''));
+    displayName += ' (' + bits.join(' · ') + ')';
+  }
   let html = '<div class="overlay" onclick="if(event.target===this) closeHistory()">';
   html += '<div class="modal wide">';
   html += '<h2>Lịch sử giá · '+escapeHtml(displayName)+'</h2>';
