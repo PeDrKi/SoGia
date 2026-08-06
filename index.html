@@ -731,7 +731,7 @@ async function refreshData(){
 /* ---------- Sổ giá: form thêm/sửa ---------- */
 function openAdd(){ editingId = null; removeImageFlag = false; showAdvancedFields = false; showForm = true; render(); }
 function openEdit(id){ editingId = id; removeImageFlag = false; showAdvancedFields = false; showForm = true; render(); }
-function closeForm(){ showForm = false; editingId = null; removeImageFlag = false; showAdvancedFields = false; render(); }
+function closeForm(){ showForm = false; editingId = null; removeImageFlag = false; showAdvancedFields = false; saving = false; render(); }
 function markRemoveImage(){ removeImageFlag = true; render(); }
 function toggleAdvancedFields(){
   showAdvancedFields = !showAdvancedFields;
