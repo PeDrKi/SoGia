@@ -1,0 +1,13 @@
+picture/
+
+# OS junk files
+.DS_Store
+Thumbs.db
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Env / secrets
+.env
+.env.local
