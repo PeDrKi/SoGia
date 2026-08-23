@@ -1128,6 +1128,31 @@ async function clearDoneShop(){
 }
 
 /* ---------- Render ---------- */
+function setAppHTML(app, html){
+  const active = document.activeElement;
+  let focusInfo = null;
+  if(active && app.contains(active) && (active.tagName==='INPUT' || active.tagName==='TEXTAREA')){
+    focusInfo = {
+      id: active.id || null,
+      name: active.name || null,
+      selectionStart: (typeof active.selectionStart === 'number') ? active.selectionStart : null,
+      selectionEnd: (typeof active.selectionEnd === 'number') ? active.selectionEnd : null
+    };
+  }
+  app.innerHTML = html;
+  if(focusInfo && (focusInfo.id || focusInfo.name)){
+    let el = null;
+    if(focusInfo.id) el = document.getElementById(focusInfo.id);
+    if(!el && focusInfo.name) el = app.querySelector('[name="'+focusInfo.name+'"]');
+    if(el){
+      el.focus();
+      if(focusInfo.selectionStart !== null && typeof el.setSelectionRange === 'function'){
+        try{ el.setSelectionRange(focusInfo.selectionStart, focusInfo.selectionEnd); }catch(err){}
+      }
+    }
+  }
+}
+
 function render(){
   const app = document.getElementById('app');
   if(locked){ renderLock(); return; }
@@ -1146,12 +1171,12 @@ function render(){
 
   if(NOT_CONFIGURED){
     html += '<div class="banner">Chưa kết nối Supabase. Mở file <code>config.js</code>, dán <code>SUPABASE_URL</code> và <code>SUPABASE_ANON_KEY</code> vào, rồi deploy lại.</div>';
-    app.innerHTML = html;
+    setAppHTML(app, html);
     return;
   }
   if(loadError){
     html += '<div class="banner">Không tải được dữ liệu: '+escapeHtml(loadError)+'. Kiểm tra lại config.js và các bảng trên Supabase (products, shopping_list).</div>';
-    app.innerHTML = html;
+    setAppHTML(app, html);
     return;
   }
 
@@ -1171,7 +1196,7 @@ function render(){
   if(inputModalState) html += renderInputModal();
   if(!NOT_CONFIGURED && activeTab==='gia') html += '<button class="fab" onclick="openAdd()" aria-label="Thêm giá">+</button>';
 
-  app.innerHTML = html;
+  setAppHTML(app, html);
 }
 
 function renderGiaTab(){
@@ -1199,7 +1224,7 @@ function renderGiaTab(){
   html += '</div>';
 
   html += '<div class="toolbar">';
-  html += '<input type="text" placeholder="Tìm sản phẩm, cửa hàng, danh mục..." value="'+escapeHtml(filterText)+'" oninput="setFilterText(this.value)">';
+  html += '<input type="text" id="searchInput" placeholder="Tìm sản phẩm, cửa hàng, danh mục..." value="'+escapeHtml(filterText)+'" oninput="setFilterText(this.value)">';
   html += '<select onchange="setFilterStore(this.value)">';
   html += '<option value="">Tất cả cửa hàng</option>';
   stores.forEach(s=>{ html += '<option value="'+escapeHtml(s)+'"'+(filterStore===s?' selected':'')+'>'+escapeHtml(s)+'</option>'; });
