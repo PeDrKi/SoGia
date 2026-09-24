@@ -406,7 +406,7 @@ async function sendResetEmail(e){
     if(error) throw error;
     authMode = 'forgotSent';
   }catch(err){
-    authError = 'Không gửi được email, kiểm tra lại địa chỉ.';
+    authError = 'Không gửi được email: ' + (err && err.message ? err.message : 'lỗi không rõ nguyên nhân.');
   }
   authBusy = false;
   render();
