@@ -4,4 +4,4 @@ const SUPABASE_ANON_KEY = "sb_publishable_ZkbF9OTouhLotGWovd-RVA_wlt7Q9dG";
 
 // Đặt mật khẩu để khóa app (để trống "" = không khóa).
 // Đây chỉ là lớp chặn cơ bản, không phải bảo mật cấp cao.
-const APP_PASSWORD = "";
+const APP_PASSWORD = "PDK12042004!";
