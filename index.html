@@ -876,10 +876,12 @@ async function submitForm(e){
     if(removeImageFlag){ image_url = null; }
     const file = f.image && f.image.files && f.image.files[0];
     if(file){
-      const compressed = await compressImage(file, 1000, 0.75);
+      let compressed;
+      try{ compressed = await compressImage(file, 1000, 0.75); }
+      catch(imgErr){ throw new Error('Không xử lý được ảnh: ' + (imgErr.message || imgErr)); }
       const filePath = Date.now() + '_img.jpg';
       const { error: upErr } = await sb.storage.from('product-images').upload(filePath, compressed, { upsert: true, contentType: 'image/jpeg' });
-      if(upErr) throw upErr;
+      if(upErr) throw new Error('Không tải ảnh lên được (' + (upErr.message || upErr) + '). Kiểm tra bucket "product-images" và quyền Storage trên Supabase.');
       const { data: urlData } = sb.storage.from('product-images').getPublicUrl(filePath);
       image_url = urlData.publicUrl;
     }
