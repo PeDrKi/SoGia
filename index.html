@@ -291,10 +291,22 @@ function fmtVND(n){
   if(n===null||n===undefined||isNaN(n)) return '—';
   return Math.round(n).toLocaleString('vi-VN') + '₫';
 }
+// Tùy chọn hiển thị đơn giá theo 100g / 100ml (chỉ áp dụng cho đơn vị g và ml)
+let unitPer100 = false;
+try{ unitPer100 = localStorage.getItem('so_gia_unit100') === '1'; }catch(e){}
+function setUnitPer100(v){
+  unitPer100 = (v === '1');
+  try{ localStorage.setItem('so_gia_unit100', unitPer100 ? '1' : '0'); }catch(e){}
+  render();
+}
+function isPer100Unit(unit){ return unitPer100 && /^(g|ml)$/i.test(String(unit||'').trim()); }
+function unitScale(unit){ return isPer100Unit(unit) ? 100 : 1; }
+function unitLabel(unit){ return (isPer100Unit(unit) ? '100' : '') + unit; }
 function fmtUnit(n, unit){
   if(n===null||n===undefined||isNaN(n)||!isFinite(n)) return '—';
+  n = n * unitScale(unit);
   const rounded = n < 1000 ? Math.round(n*100)/100 : Math.round(n);
-  return rounded.toLocaleString('vi-VN') + '₫/' + unit;
+  return rounded.toLocaleString('vi-VN') + '₫/' + unitLabel(unit);
 }
 function effectivePrice(p){
   return (p.sale_price !== null && p.sale_price !== undefined && p.sale_price > 0) ? p.sale_price : p.price;
@@ -340,7 +352,8 @@ function showToast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 2200);
+  if(window.__toastTimer) clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
 }
 let undoTimeoutId = null;
 let pendingUndo = null;
@@ -568,20 +581,130 @@ function renderInputModal(){
   return html;
 }
 
+let zipBusy = false;
+function loadJSZip(){
+  if(window.JSZip) return Promise.resolve(window.JSZip);
+  return new Promise((resolve, reject)=>{
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    sc.onload = ()=> window.JSZip ? resolve(window.JSZip) : reject(new Error('Không nạp được thư viện zip'));
+    sc.onerror = ()=> reject(new Error('Không tải được thư viện nén zip (kiểm tra kết nối mạng)'));
+    document.head.appendChild(sc);
+  });
+}
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+async function exportZip(){
+  if(zipBusy) return;
+  zipBusy = true;
+  try{
+    const JSZip = await loadJSZip();
+    const zip = new JSZip();
+    const imgFolder = zip.folder('images');
+    const urls = Array.from(new Set(products.map(p=>p.image_url).filter(Boolean)));
+    const urlToFile = {};
+    let n = 0, failed = 0;
+    for(let i=0; i<urls.length; i++){
+      showToast('Đang tải ảnh '+(i+1)+'/'+urls.length+'...');
+      try{
+        const res = await fetch(urls[i]);
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const blob = await res.blob();
+        const ext = ((blob.type||'image/jpeg').split('/')[1] || 'jpg').replace('jpeg','jpg').replace(/[^a-z0-9]/gi,'');
+        const fname = 'img_' + String(++n).padStart(4,'0') + '.' + ext;
+        imgFolder.file(fname, blob);
+        urlToFile[urls[i]] = 'images/' + fname;
+      }catch(e){ failed++; }
+    }
+    const backup = {
+      format: 'so-gia-zip-v1',
+      exported_at: new Date().toISOString(),
+      products: products.map(p=>{
+        const q = Object.assign({}, p);
+        if(q.image_url && urlToFile[q.image_url]) q.image_file = urlToFile[q.image_url];
+        return q;
+      }),
+      shopping_list: shopping
+    };
+    zip.file('data.json', JSON.stringify(backup, null, 2));
+    showToast('Đang nén file...');
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    downloadBlob(blob, 'so-gia-backup-' + todayStr() + '.zip');
+    showToast(failed ? ('Đã tải sao lưu. '+failed+' ảnh không tải được nên chưa kèm theo.') : ('Đã tải sao lưu kèm '+n+' ảnh'));
+  }catch(e){
+    showToast('Lỗi sao lưu: ' + (e.message || e));
+  }finally{
+    zipBusy = false;
+  }
+}
+
 async function importJSONFile(input){
   const file = input.files && input.files[0];
   input.value = '';
   if(!file) return;
+  const isZip = /\.zip$/i.test(file.name) || file.type === 'application/zip' || file.type === 'application/x-zip-compressed';
   showInputModal({
     title: 'Khôi phục dữ liệu',
-    message: 'Dữ liệu trong file sẽ được thêm vào (hoặc ghi đè nếu trùng) dữ liệu hiện tại, không xóa các mục khác. Tiếp tục?',
+    message: 'Dữ liệu trong file sẽ được thêm vào (hoặc ghi đè nếu trùng) dữ liệu hiện tại, không xóa các mục khác.' + (isZip ? ' Ảnh trong file sẽ được tải lên lại.' : '') + ' Tiếp tục?',
     showInput: false,
     confirmLabel: 'Khôi phục',
     onConfirm: async ()=>{
+      if(zipBusy) return;
+      zipBusy = true;
       try{
-        const text = await file.text();
-        const backup = JSON.parse(text);
+        let backup, zip = null;
+        if(isZip){
+          const JSZip = await loadJSZip();
+          zip = await JSZip.loadAsync(file);
+          const dataFile = zip.file('data.json');
+          if(!dataFile) throw new Error('File zip không có data.json');
+          backup = JSON.parse(await dataFile.async('string'));
+        }else{
+          backup = JSON.parse(await file.text());
+        }
         if(!backup || !Array.isArray(backup.products)) throw new Error('File sao lưu không đúng định dạng');
+
+        let imgFail = 0;
+        if(zip){
+          const mime = { jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', webp:'image/webp', gif:'image/gif' };
+          const cache = {};
+          const total = new Set(backup.products.map(p=>p.image_file).filter(Boolean)).size;
+          let done = 0;
+          for(const p of backup.products){
+            const f = p.image_file;
+            if(f){
+              if(!(f in cache)){
+                cache[f] = null;
+                const entry = zip.file(f);
+                if(entry){
+                  showToast('Đang tải ảnh lên '+(++done)+'/'+total+'...');
+                  const ext = (f.split('.').pop() || 'jpg').toLowerCase();
+                  const buf = await entry.async('arraybuffer');
+                  const path = Date.now() + '_' + done + '_img.' + ext;
+                  const { error: upErr } = await sb.storage.from('product-images').upload(path, new Blob([buf], { type: mime[ext] || 'image/jpeg' }), { upsert: true, contentType: mime[ext] || 'image/jpeg' });
+                  if(upErr){
+                    imgFail++;
+                    if(imgFail === 1) console.warn('Upload ảnh lỗi:', upErr);
+                  }else{
+                    cache[f] = sb.storage.from('product-images').getPublicUrl(path).data.publicUrl;
+                  }
+                }else{
+                  imgFail++;
+                }
+              }
+              if(cache[f]) p.image_url = cache[f];
+            }
+            delete p.image_file;
+          }
+        }else{
+          backup.products.forEach(p=>{ delete p.image_file; });
+        }
+
         if(backup.products.length){
           const { error: e1 } = await sb.from('products').upsert(backup.products);
           if(e1) throw e1;
@@ -590,10 +713,12 @@ async function importJSONFile(input){
           const { error: e2 } = await sb.from('shopping_list').upsert(backup.shopping_list);
           if(e2) throw e2;
         }
-        showToast('Đã khôi phục dữ liệu từ file sao lưu');
+        showToast(imgFail ? ('Đã khôi phục dữ liệu, nhưng '+imgFail+' ảnh chưa tải lên được (kiểm tra quyền Storage).') : 'Đã khôi phục dữ liệu từ file sao lưu');
         await loadData();
       }catch(e){
         showToast('Lỗi khôi phục: ' + (e.message || e));
+      }finally{
+        zipBusy = false;
       }
     }
   });
@@ -698,8 +823,9 @@ function renderManageModal(){
 
   html += '<div style="font-weight:600;font-size:13px;margin-bottom:6px;">Sao lưu &amp; khôi phục</div>';
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;">';
-  html += '<button type="button" class="chip-btn" onclick="exportJSON()">⬇ Tải file sao lưu (JSON)</button>';
-  html += '<label class="chip-btn" style="cursor:pointer;">⬆ Khôi phục từ file...<input type="file" accept="application/json" style="display:none;" onchange="importJSONFile(this)"></label>';
+  html += '<button type="button" class="chip-btn" onclick="exportJSON()">⬇ Tải sao lưu (JSON, không kèm ảnh)</button>';
+  html += '<button type="button" class="chip-btn" onclick="exportZip()">🖼 Tải sao lưu kèm ảnh (.zip)</button>';
+  html += '<label class="chip-btn" style="cursor:pointer;">⬆ Khôi phục từ file (.json hoặc .zip)...<input type="file" accept=".json,.zip,application/json,application/zip,application/x-zip-compressed" style="display:none;" onchange="importJSONFile(this)"></label>';
   html += '</div>';
   html += '<p style="font-size:12.5px;color:var(--ink-soft);margin:-10px 0 18px;">Nên tải file sao lưu định kỳ để phòng khi lỡ thao tác nhầm hàng loạt.</p>';
 
@@ -811,7 +937,8 @@ function updateUnitPricePreview(){
     el.textContent = 'Đơn giá: —';
     return;
   }
-  el.textContent = 'Đơn giá: ' + fmtVND(Math.round(effPrice/qty)) + ' / ' + unit;
+  const scaled = (effPrice/qty) * unitScale(unit);
+  el.textContent = 'Đơn giá: ' + fmtVND(scaled < 1000 ? Math.round(scaled*100)/100 : Math.round(scaled)) + ' / ' + unitLabel(unit);
 }
 function markRemoveImage(){ removeImageFlag = true; render(); }
 function toggleAdvancedFields(){
@@ -1094,7 +1221,7 @@ function openHistory(key){
       const [comboStore, comboBranch] = combo.split('‖');
       const label = comboBranch ? comboStore + ' · ' + comboBranch : comboStore;
       const byDate = {};
-      entries.filter(e=> (e.store+'‖'+(e.branch||'')) === combo).forEach(e=>{ byDate[e.date] = unitPrice(e); });
+      entries.filter(e=> (e.store+'‖'+(e.branch||'')) === combo).forEach(e=>{ byDate[e.date] = unitPrice(e) * unitScale(e.unit); });
       return {
         label: label,
         data: dates.map(d => byDate[d] !== undefined ? byDate[d] : null),
@@ -1112,7 +1239,10 @@ function openHistory(key){
       options: {
         responsive: true,
         plugins: { legend: { position: 'bottom', labels: { font: { family: 'Inter' } } } },
-        scales: { y: { ticks: { callback: v => Math.round(v).toLocaleString('vi-VN') + '₫' } } }
+        scales: { y: {
+          title: { display: true, text: '₫ / ' + (entries[0] ? unitLabel(entries[0].unit) : 'đơn vị') },
+          ticks: { callback: v => (v < 1000 ? Math.round(v*100)/100 : Math.round(v)).toLocaleString('vi-VN') + '₫' }
+        } }
       }
     });
   }, 30);
@@ -1349,6 +1479,10 @@ function renderPriceTab(){
     html += '<option value="recent"'+(sortMode==='recent'?' selected':'')+'>Sắp xếp: Cập nhật gần nhất</option>';
     html += '</select>';
   }
+  html += '<select onchange="setUnitPer100(this.value)" title="Cách hiển thị đơn giá cho sản phẩm tính theo g / ml">';
+  html += '<option value="0"'+(unitPer100?'':' selected')+'>Đơn giá: /g, /ml</option>';
+  html += '<option value="1"'+(unitPer100?' selected':'')+'>Đơn giá: /100g, /100ml</option>';
+  html += '</select>';
   if(isFiltering) html += '<button type="button" class="btn-ghost" onclick="clearAllFilters()">✕ Xóa bộ lọc</button>';
   html += '<button class="btn-ghost" onclick="exportCSV()">⬇ Xuất CSV</button>';
   html += '</div>';
@@ -1403,6 +1537,7 @@ function renderGroupCard(g, showCatLabel){
     html += '<div class="row-price">';
     if(hasSale) html += '<span class="price-old">'+fmtVND(p.price)+'</span>';
     html += '<span class="price-now">'+fmtVND(eff)+'</span>';
+    if(!isNaN(up) && (parseFloat(p.qty) !== 1 || isPer100Unit(p.unit))) html += '<div class="unit-price">'+fmtUnit(up, p.unit)+'</div>';
     html += '</div>';
     html += '<div class="row-actions">';
     html += '<button class="icon-btn" onclick="openEdit(\''+p.id+'\')" aria-label="Sửa">✎</button>';
